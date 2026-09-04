@@ -1,9 +1,4 @@
-import {
-  WEB_SEARCH_TOOL,
-  extractSources,
-  ndjsonStream,
-  streamTurn,
-} from "@/lib/claude";
+import { ndjsonStream, streamTurn } from "@/lib/ai";
 import { ROLE, researchDepthPrompt, systemPrompt } from "@/lib/prompts";
 import { type ExpertId, withExpert } from "@/lib/experts";
 import type { Lang } from "@/lib/i18n";
@@ -42,10 +37,9 @@ export async function POST(request: Request) {
       "7. **Search terms** — Arabic and English keyword strings for databases.",
       "",
       useWeb
-        ? "Use the web search tool before answering. Cite a source inline as [n] and rely only on what you actually read; if the evidence is thin, say so."
+        ? "You have Google Search. Search before answering, and rely only on what you actually read; if the evidence is thin, say so."
         : "You have no web access in this run. Work from what you know, and mark clearly anything the student must verify against a real source. Do not fabricate citations.",
     ].join("\n"),
-    // The literature-review specialist is the natural default for this page.
     body.expert === undefined ? "research-synthesist" : body.expert,
   );
 
@@ -58,18 +52,14 @@ export async function POST(request: Request) {
 
   return ndjsonStream(async (emit) => {
     if (!question) return;
-    const message = await streamTurn(emit, {
+    const { sources } = await streamTurn(emit, {
       system,
-      messages: [{ role: "user", content: prompt }],
-      maxTokens: 64000,
-      tools: useWeb ? [WEB_SEARCH_TOOL] : undefined,
-      statusLabels: {
-        thinking: "out.thinking",
-        searching: "research.searching",
-      },
+      messages: [{ role: "user", parts: [{ text: prompt }] }],
+      maxTokens: 16384,
+      search: useWeb,
+      statusLabels: { thinking: "out.thinking", searching: "research.searching" },
       signal: request.signal,
     });
-    const sources = extractSources(message);
     if (sources.length) emit({ type: "sources", sources });
   });
 }

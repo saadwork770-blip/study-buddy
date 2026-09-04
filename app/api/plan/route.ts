@@ -1,32 +1,40 @@
-import { z } from "zod";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { EFFORT, MODEL, errorKey, getClient } from "@/lib/claude";
+import { errorKey, generateJson } from "@/lib/ai";
 import { ROLE, systemPrompt } from "@/lib/prompts";
 import type { Lang } from "@/lib/i18n";
-import type { Task } from "@/lib/types";
+import type { Task, TaskPlan } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const PlanSchema = z.object({
-  plan: z
-    .string()
-    .describe("A short paragraph (3-5 sentences) on how to approach the work."),
-  subtasks: z
-    .array(
-      z.object({
-        title: z.string().describe("One concrete, checkable step."),
-        hours: z.number().describe("Realistic hours of focused work."),
-        target: z
-          .string()
-          .describe("Suggested date to finish this step, as YYYY-MM-DD."),
-      }),
-    )
-    .describe("5-10 steps in the order they should be done."),
-  risks: z
-    .array(z.string())
-    .describe("2-4 things likely to go wrong or be underestimated."),
-});
+/** OpenAPI-subset schema Gemini validates its JSON output against. */
+const PLAN_SCHEMA = {
+  type: "object",
+  properties: {
+    plan: {
+      type: "string",
+      description: "A short paragraph (3-5 sentences) on how to approach the work.",
+    },
+    subtasks: {
+      type: "array",
+      description: "5-10 steps in the order they should be done.",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "One concrete, checkable step." },
+          hours: { type: "number", description: "Realistic hours of focused work." },
+          target: { type: "string", description: "Date to finish this step, YYYY-MM-DD." },
+        },
+        required: ["title", "hours", "target"],
+      },
+    },
+    risks: {
+      type: "array",
+      description: "2-4 things likely to go wrong or be underestimated.",
+      items: { type: "string" },
+    },
+  },
+  required: ["plan", "subtasks", "risks"],
+};
 
 export async function POST(request: Request) {
   const body = (await request.json()) as { task: Task; lang: Lang };
@@ -55,21 +63,9 @@ export async function POST(request: Request) {
     .join("\n");
 
   try {
-    const response = await getClient().messages.parse({
-      model: MODEL,
-      max_tokens: 16000,
-      output_config: {
-        effort: EFFORT,
-        format: zodOutputFormat(PlanSchema),
-      },
-      system,
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    if (!response.parsed_output) {
-      return Response.json({ error: "error.generic" }, { status: 502 });
-    }
-    return Response.json(response.parsed_output);
+    const plan = await generateJson<TaskPlan>(system, prompt, PLAN_SCHEMA);
+    if (!plan) return Response.json({ error: "error.generic" }, { status: 502 });
+    return Response.json(plan);
   } catch (err) {
     console.error("[study-buddy] plan failed:", err);
     return Response.json({ error: errorKey(err) }, { status: 500 });

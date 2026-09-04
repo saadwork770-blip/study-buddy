@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useLang } from "@/components/lang-provider";
 import { OutputPanel } from "@/components/output-panel";
+import { ExpertPicker } from "@/components/expert-picker";
 import { useStream } from "@/lib/use-stream";
 import type { TKey } from "@/lib/i18n";
 
@@ -25,6 +26,7 @@ export default function SummarizePage() {
   const [style, setStyle] = useState("brief");
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [expert, setExpert] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -49,6 +51,7 @@ export default function SummarizePage() {
     form.set("lang", lang);
     form.set("style", style);
     form.set("text", text);
+    if (expert) form.set("expert", expert);
     if (file) {
       form.set("file", file);
       form.set("title", file.name);
@@ -149,6 +152,8 @@ export default function SummarizePage() {
               ))}
             </select>
           </div>
+
+          <ExpertPicker value={expert} onChange={setExpert} />
 
           {localError && <div className="alert alert-error">{t(localError as TKey, { n: MAX_UPLOAD_MB })}</div>}
 

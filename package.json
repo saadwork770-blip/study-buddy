@@ -12,13 +12,12 @@
     "check": "node scripts/check-key.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.123.0",
+    "@google/genai": "^2.21.0",
     "docx": "^9.7.1",
     "mammoth": "^1.12.2",
     "next": "^16.3.4",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "zod": "^4.5.4"
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

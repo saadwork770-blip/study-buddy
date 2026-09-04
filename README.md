@@ -4,6 +4,14 @@
 
 An AI study companion for master's students: assignment planning, research, summarisation and tutoring — with first-class Arabic support and multi-format export.
 
+> **مجاني بالكامل.** يعمل التطبيق على الطبقة المجانية من Gemini: مفتاح من
+> [Google AI Studio](https://aistudio.google.com/apikey) بلا بطاقة ائتمان، واستضافة
+> مجانية على Vercel. لا فواتير ولا اشتراك.
+>
+> **Runs free.** Gemini's free tier (no credit card) plus Vercel's free hosting.
+> The free tier has a daily request cap and Google may use free-tier inputs to
+> improve its models — don't paste anything confidential.
+
 ---
 
 ## المزايا · Features
@@ -61,18 +69,20 @@ cp .env.example .env.local     # then put your key in .env.local
 npm run dev                    # http://localhost:3000
 ```
 
-يحتاج التطبيق إلى مفتاح من [Anthropic Console](https://console.anthropic.com/settings/keys):
+يحتاج التطبيق إلى مفتاح **مجاني** من [Google AI Studio](https://aistudio.google.com/apikey)
+— بلا بطاقة ائتمان، ويستغرق دقيقة:
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...
+GEMINI_API_KEY=AIza...
 ```
 
 المتغيّرات الاختيارية · Optional variables:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ANTHROPIC_MODEL` | `claude-opus-5` | Model used for every request. |
-| `ANTHROPIC_EFFORT` | `high` | Reasoning effort: `low`, `medium`, `high`, `xhigh`, `max`. Lower it to cut cost. |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | The free-tier workhorse. `gemini-2.5-pro` is stronger but its free quota is much smaller. |
+| `AI_EFFORT` | `high` | How hard the model thinks: `low` (thinking off, fastest, least quota), `medium`, `high`. |
+| `NEXT_PUBLIC_MAX_UPLOAD_MB` | `4` | Upload cap. Vercel limits a request body to ~4.5 MB; raise it when self-hosting. |
 
 للنشر · To deploy:
 
@@ -80,7 +90,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 npm run build && npm start
 ```
 
-يعمل على أي منصّة تدعم Node.js‏ (Vercel، Netlify، Railway، أو خادم خاص). أضِف `ANTHROPIC_API_KEY` إلى متغيّرات البيئة هناك.
+يعمل على أي منصّة تدعم Node.js‏ (Vercel، Netlify، Railway، أو خادم خاص). أضِف `GEMINI_API_KEY` إلى متغيّرات البيئة هناك.
 
 
 ---
@@ -96,7 +106,7 @@ npm run build && npm start
 
    | Name | Value |
    |---|---|
-   | `ANTHROPIC_API_KEY` | `sk-ant-...` |
+   | `GEMINI_API_KEY` | `AIza...` |
 
 5. اضغط **Deploy** وانتظر دقيقتين. ستحصل على رابط مثل `study-buddy.vercel.app`.
 
@@ -104,7 +114,7 @@ npm run build && npm start
 
 The fastest route is **Vercel** (free tier, no card): create a key, open
 [vercel.com/new](https://vercel.com/new), import **study-buddy**, add
-`ANTHROPIC_API_KEY` under Environment Variables, and hit Deploy. The repo's
+`GEMINI_API_KEY` under Environment Variables, and hit Deploy. The repo's
 default branch is already the one Vercel will build.
 
 ### إعدادات تهمّك بعد النشر · Post-deploy settings
@@ -113,8 +123,8 @@ default branch is already the one Vercel will build.
 |---|---|
 | **Fluid Compute** (Settings → Functions) | مُفعّل افتراضياً للمشاريع الجديدة. بدونه تتوقّف الدوال بعد ٦٠ ثانية، وقد لا يكتمل «البحث المعمّق». |
 | `NEXT_PUBLIC_MAX_UPLOAD_MB` | حجم الرفع الأقصى. الافتراضي **٤ ميغابايت** لأن Vercel تحدّ جسم الطلب عند ٤٫٥ تقريباً. إن استضفت التطبيق بنفسك (Node أو Docker أو Railway) ارفعه إلى ٢٠ أو أكثر. |
-| `ANTHROPIC_EFFORT` | `low` أو `medium` لتقليل التكلفة، `high` (الافتراضي) لأفضل جودة. |
-| `ANTHROPIC_MODEL` | لتغيير النموذج، مثل `claude-sonnet-5` لخفض التكلفة. |
+| `AI_EFFORT` | `low` يوقف «التفكير» فيصبح أسرع ويستهلك حصّة أقل، `high` (الافتراضي) لأفضل جودة. |
+| `GEMINI_MODEL` | `gemini-2.5-flash` (الافتراضي، حصّة مجانية سخيّة) أو `gemini-2.5-pro` لجودة أعلى بحصّة أصغر. |
 
 **Known platform limits.** Vercel caps a serverless request body at ~4.5 MB, so
 file upload defaults to 4 MB there — raise `NEXT_PUBLIC_MAX_UPLOAD_MB` when you
@@ -130,7 +140,7 @@ research run may be cut off — use "balanced" depth there.
 npm ci && npm run build && npm start    # PORT=3000
 ```
 
-ضَع `ANTHROPIC_API_KEY` في بيئة التشغيل، وارفع `NEXT_PUBLIC_MAX_UPLOAD_MB` إلى ٢٠ لأن حدّ ٤٫٥ ميغابايت خاصّ بـ Vercel وحدها.
+ضَع `GEMINI_API_KEY` في بيئة التشغيل، وارفع `NEXT_PUBLIC_MAX_UPLOAD_MB` إلى ٢٠ لأن حدّ ٤٫٥ ميغابايت خاصّ بـ Vercel وحدها.
 
 
 ### تأكّد أنه يعمل · Verify it works
@@ -146,9 +156,9 @@ npm run check
 وبعد التشغيل، تعرض الصفحة الرئيسية حالة الاتصال تلقائياً: شريط أخضر إن كان كل شيء
 جاهزاً، أو شريط أحمر يذكر سبب الفشل بالضبط — فلا تكتشف المشكلة وأنت في منتصف بحثك.
 
-`npm run check` verifies the key against the real API before you deploy, and the
+`npm run check` verifies the key against the real Gemini API before you deploy, and the
 home page runs the same check itself (`/api/health`) on every load — green when
-Claude is reachable, red with the exact reason when it is not.
+Gemini is reachable, red with the exact reason when it is not.
 
 ---
 
@@ -194,6 +204,6 @@ Prompts are written to help you understand, plan and revise your own work. The m
 ## ملاحظات تقنية · Technical notes
 
 - Next.js 16 (App Router) · React 19 · TypeScript · بدون مكتبة واجهة خارجية.
-- Claude via `@anthropic-ai/sdk` — adaptive thinking, streaming, `web_search` server tool, structured outputs (Zod) for task plans, and server-side refusal fallback with an automatic downgrade to the stable endpoint if that beta isn't enabled on the account.
-- PDF files are sent to Claude as native document blocks; `.docx` is converted with `mammoth`; images use vision.
-- Uploads are capped at 20 MB.
+- Gemini via `@google/genai` — streaming, a configurable thinking budget, **Google Search grounding** for real citations on the Research page, and `responseSchema` JSON output for task plans.
+- PDFs and images are sent to Gemini as native `inlineData` parts; `.docx` is converted locally with `mammoth`.
+- Uploads are capped by `NEXT_PUBLIC_MAX_UPLOAD_MB` (4 MB by default, for Vercel's sake).

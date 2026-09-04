@@ -45,7 +45,7 @@ const dict = {
       "واجهة من اليمين إلى اليسار، ومخرجات بالعربية الفصحى، مع الحفاظ على المصطلحات الأجنبية عند الحاجة.",
     "home.setup.title": "قبل أن تبدأ",
     "home.setup.body":
-      "يحتاج التطبيق إلى مفتاح Anthropic API. أضِف ANTHROPIC_API_KEY إلى ملف ‎.env.local ثم أعد تشغيل الخادم.",
+      "يحتاج التطبيق إلى مفتاح Gemini مجاني من Google AI Studio. أضِف GEMINI_API_KEY إلى ملف ‎.env.local ثم أعد تشغيل الخادم.",
 
     "tasks.title": "المهام والتكاليف",
     "tasks.subtitle": "كل ما عليك تسليمه هذا الفصل، في مكان واحد.",
@@ -199,13 +199,13 @@ const dict = {
     "expert.credit": "شخصيات الخبراء مقتبسة من مشروع agency-agents برخصة MIT.",
 
     "health.checking": "جارٍ التحقّق من الاتصال…",
-    "health.ok": "متصل بـ Claude ({model}) — كل الميزات جاهزة.",
+    "health.ok": "متصل بـ {model} — كل الميزات جاهزة.",
     "health.fail": "الاتصال غير مكتمل",
     "health.detail": "التفاصيل",
 
     "error.noKey":
-      "لم يتم ضبط مفتاح ANTHROPIC_API_KEY. أضِفه إلى ملف ‎.env.local ثم أعد تشغيل الخادم.",
-    "error.rate": "تم تجاوز حد الطلبات. انتظر قليلاً ثم أعد المحاولة.",
+      "لم يتم ضبط مفتاح GEMINI_API_KEY. احصل على مفتاح مجاني من aistudio.google.com/apikey وأضِفه إلى ‎.env.local.",
+    "error.rate": "تم بلوغ حصّة الطبقة المجانية مؤقتاً. انتظر قليلاً ثم أعد المحاولة.",
     "error.generic": "تعذّر إكمال الطلب. حاول مرة أخرى.",
     "error.fileTooBig": "حجم الملف كبير جداً (الحد {n} ميغابايت).",
     "error.fileType": "نوع الملف غير مدعوم.",
@@ -249,7 +249,7 @@ const dict = {
       "Right-to-left interface and fluent Arabic output, keeping technical terms where they belong.",
     "home.setup.title": "Before you start",
     "home.setup.body":
-      "This app needs an Anthropic API key. Add ANTHROPIC_API_KEY to .env.local and restart the server.",
+      "This app needs a free Gemini API key from Google AI Studio. Add GEMINI_API_KEY to .env.local and restart the server.",
 
     "tasks.title": "Assignments & tasks",
     "tasks.subtitle": "Everything you owe this semester, in one place.",
@@ -403,13 +403,13 @@ const dict = {
     "expert.credit": "Specialist personas adapted from the MIT-licensed agency-agents project.",
 
     "health.checking": "Checking the connection…",
-    "health.ok": "Connected to Claude ({model}) — every feature is ready.",
+    "health.ok": "Connected to {model} — every feature is ready.",
     "health.fail": "Not connected",
     "health.detail": "Details",
 
     "error.noKey":
-      "ANTHROPIC_API_KEY is not set. Add it to .env.local and restart the server.",
-    "error.rate": "Rate limited. Wait a moment and try again.",
+      "GEMINI_API_KEY is not set. Get a free key at aistudio.google.com/apikey and add it to .env.local.",
+    "error.rate": "Free-tier quota reached for now. Wait a moment and try again.",
     "error.generic": "The request could not be completed. Please try again.",
     "error.fileTooBig": "That file is too large ({n} MB max).",
     "error.fileType": "That file type is not supported.",

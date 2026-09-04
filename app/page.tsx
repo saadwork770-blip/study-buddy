@@ -51,7 +51,7 @@ export default function HomePage() {
         <h2>{t("home.setup.title")}</h2>
         <p className="small muted">{t("home.setup.body")}</p>
         <pre className="prose" style={{ marginTop: 10 }} dir="ltr">
-          <code>ANTHROPIC_API_KEY=sk-ant-...</code>
+          <code>GEMINI_API_KEY=AIza...</code>
         </pre>
       </div>
     </main>

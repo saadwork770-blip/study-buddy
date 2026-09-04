@@ -1,5 +1,16 @@
 import type { Lang } from "./i18n";
 
+/** One piece of a message: text, or an inlined file (PDF, image). */
+export type AiPart =
+  | { text: string }
+  | { inlineData: { mimeType: string; data: string } };
+
+/** Gemini names the assistant role "model". */
+export interface AiMessage {
+  role: "user" | "model";
+  parts: AiPart[];
+}
+
 export type TaskType =
   | "assignment"
   | "reading"

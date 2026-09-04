@@ -46,5 +46,8 @@ The three kept here are the ones actually written for real research work:
 
 ## Editing
 
+These personas are plain text and provider-independent - they work unchanged
+whichever model the app runs on.
+
 `lib/experts.generated.ts` is built from these files by `scripts/build-experts.mjs`
 (run automatically by `npm run build`). Edit the Markdown, not the generated file.

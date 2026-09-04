@@ -1,4 +1,4 @@
-// Verifies ANTHROPIC_API_KEY actually works, before you deploy.
+// Verifies GEMINI_API_KEY actually works, before you deploy.
 //   npm run check
 import { readFileSync } from "node:fs";
 
@@ -11,55 +11,50 @@ function loadEnvFile(path) {
       if (!process.env[m[1]]) process.env[m[1]] = value;
     }
   } catch {
-    /* no such file — fall back to the real environment */
+    /* no such file - fall back to the real environment */
   }
 }
 
 loadEnvFile(".env.local");
 loadEnvFile(".env");
 
-const key = process.env.ANTHROPIC_API_KEY;
-const model = process.env.ANTHROPIC_MODEL || "claude-opus-5";
+const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 if (!key) {
-  console.error("✗ ANTHROPIC_API_KEY is not set.");
-  console.error("  Put it in .env.local:  ANTHROPIC_API_KEY=sk-ant-...");
-  process.exit(1);
-}
-if (!key.startsWith("sk-ant-")) {
-  console.error('✗ That key does not look right — it should start with "sk-ant-".');
+  console.error("✗ GEMINI_API_KEY is not set.");
+  console.error("  Get one free at https://aistudio.google.com/apikey");
+  console.error("  Then put it in .env.local:  GEMINI_API_KEY=AIza...");
   process.exit(1);
 }
 
 console.log(`… asking ${model} to reply, using the key in your environment`);
 
-const response = await fetch("https://api.anthropic.com/v1/messages", {
+const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+const response = await fetch(url, {
   method: "POST",
-  headers: {
-    "content-type": "application/json",
-    "x-api-key": key,
-    "anthropic-version": "2023-06-01",
-  },
+  headers: { "content-type": "application/json", "x-goog-api-key": key },
   body: JSON.stringify({
-    model,
-    max_tokens: 1024,
-    output_config: { effort: "low" },
-    messages: [{ role: "user", content: "Reply with the single word: OK" }],
+    contents: [{ role: "user", parts: [{ text: "Reply with the single word: OK" }] }],
+    generationConfig: { maxOutputTokens: 256, thinkingConfig: { thinkingBudget: 0 } },
   }),
 });
 
 if (!response.ok) {
   const body = await response.text();
   console.error(`✗ HTTP ${response.status}`);
-  if (response.status === 401) console.error("  The key was rejected. Check you copied all of it.");
-  else if (response.status === 400 && body.includes("credit"))
-    console.error("  The account has no credit. Add some in the Anthropic console.");
-  else if (response.status === 429) console.error("  Rate limited — wait a moment and re-run.");
+  if (response.status === 400 && /API_KEY_INVALID|not valid/i.test(body))
+    console.error("  The key was rejected. Check you copied all of it.");
+  else if (response.status === 429)
+    console.error("  Free-tier quota reached for now. Wait and re-run, or slow down.");
+  else if (response.status === 403)
+    console.error("  The key exists but is not allowed to call this model.");
   console.error("  " + body.slice(0, 400));
   process.exit(1);
 }
 
 const data = await response.json();
-const text = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("").trim();
-console.log(`✓ Working. ${data.model} replied: ${text || "(no text)"}`);
-console.log(`  tokens in/out: ${data.usage?.input_tokens}/${data.usage?.output_tokens}`);
+const text = (data.candidates?.[0]?.content?.parts || []).map((p) => p.text).join("").trim();
+console.log(`✓ Working. ${model} replied: ${text || "(no text)"}`);
+const u = data.usageMetadata;
+if (u) console.log(`  tokens in/out: ${u.promptTokenCount}/${u.candidatesTokenCount}`);

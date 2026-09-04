@@ -1,8 +1,7 @@
-import type Anthropic from "@anthropic-ai/sdk";
-import { ndjsonStream, streamTurn } from "@/lib/claude";
+import { ndjsonStream, streamTurn } from "@/lib/ai";
 import { ROLE, chatModePrompt, systemPrompt } from "@/lib/prompts";
 import { type ExpertId, withExpert } from "@/lib/experts";
-import type { ChatMessage } from "@/lib/types";
+import type { AiMessage, ChatMessage } from "@/lib/types";
 import type { Lang } from "@/lib/i18n";
 
 export const runtime = "nodejs";
@@ -33,9 +32,9 @@ export async function POST(request: Request) {
     body.expert ?? null,
   );
 
-  const messages: Anthropic.MessageParam[] = history.map((m) => ({
-    role: m.role,
-    content: m.content,
+  const messages: AiMessage[] = history.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
   }));
 
   return ndjsonStream(async (emit) => {
@@ -43,7 +42,7 @@ export async function POST(request: Request) {
     await streamTurn(emit, {
       system,
       messages,
-      maxTokens: 32000,
+      maxTokens: 8192,
       statusLabels: { thinking: "out.thinking" },
       signal: request.signal,
     });
