@@ -3,7 +3,8 @@
 import { markdownToText, renderMarkdown } from "./markdown";
 import type { Lang } from "./i18n";
 import type { DocMeta } from "./doc-meta";
-import { DEFAULT_THEME, type DocTheme, fontById, fontsHref } from "./doc-theme";
+import { DEFAULT_THEME, type DocTheme, MARGINS, PAGE, fontById, fontsHref } from "./doc-theme";
+import { type CiteStyle, type Reference, referenceSection } from "./citations";
 import type { Source, Task } from "./types";
 
 export type ExportFormat = "md" | "txt" | "html" | "docx" | "pptx" | "pdf" | "json";
@@ -17,6 +18,8 @@ export interface ExportPayload {
   meta?: DocMeta;
   coverRows?: { label: string; value: string }[];
   theme?: DocTheme;
+  references?: Reference[];
+  citeStyle?: CiteStyle;
 }
 
 /** Filesystem-safe filename that keeps Arabic characters intact. */
@@ -41,13 +44,20 @@ export function download(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+/** The student's own reference list, formatted in their chosen style. */
+function withReferences(markdown: string, payload: ExportPayload): string {
+  if (!payload.references?.length) return markdown;
+  return markdown + referenceSection(payload.references, payload.citeStyle ?? "apa7", payload.lang);
+}
+
 function withSources(payload: ExportPayload): string {
-  if (!payload.sources?.length) return payload.markdown;
+  const body = withReferences(payload.markdown, payload);
+  if (!payload.sources?.length) return body;
   const heading = payload.lang === "ar" ? "## المصادر" : "## Sources";
   const list = payload.sources
     .map((source, index) => `${index + 1}. [${source.title}](${source.url})`)
     .join("\n");
-  return `${payload.markdown}\n\n${heading}\n\n${list}\n`;
+  return `${body}\n\n${heading}\n\n${list}\n`;
 }
 
 /** Drops a leading H1 that just repeats the title the cover already shows. */
@@ -221,7 +231,7 @@ ${fontsLink}
   footer.doc{margin-top:38px; padding-top:12px; border-top:1px solid var(--rule);
     color:var(--faint); font-size:8.5pt; display:flex; justify-content:space-between; gap:12px;}
 
-  @page{margin:20mm 18mm;}
+  @page{size:${PAGE[theme.pageSize].css}; margin:${MARGINS[theme.margin]}mm;}
   @media print{
     body{padding:0; max-width:none; font-size:11.5pt;}
     .cover{min-height:0; height:245mm; break-after:page; border:none;

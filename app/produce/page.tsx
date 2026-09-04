@@ -8,6 +8,8 @@ import { FileAttach } from "@/components/file-attach";
 import { useStream } from "@/lib/use-stream";
 import type { TKey } from "@/lib/i18n";
 import type { Attachment } from "@/lib/types";
+import type { CiteStyle, Reference } from "@/lib/citations";
+import { CITE_STYLES } from "@/lib/citations";
 
 const KINDS: { value: string; label: TKey }[] = [
   { value: "report", label: "produce.kind.report" },
@@ -23,6 +25,17 @@ const LENGTHS: { value: string; label: TKey }[] = [
   { value: "long", label: "produce.length.long" },
 ];
 
+/** Reuse the references the student maintains in the editor. */
+function readDraftReferences(): Reference[] {
+  try {
+    const raw = window.localStorage.getItem("sb.draft");
+    if (!raw) return [];
+    return (JSON.parse(raw) as { references?: Reference[] }).references ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export default function ProducePage() {
   const { t, lang } = useLang();
   const stream = useStream();
@@ -34,6 +47,7 @@ export default function ProducePage() {
   const [expert, setExpert] = useState<string | null>(null);
   const [files, setFiles] = useState<Attachment[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [citeStyle, setCiteStyle] = useState<CiteStyle>("apa7");
 
   const start = () => {
     if (stream.running) return;
@@ -54,6 +68,8 @@ export default function ProducePage() {
         lang,
         expert,
         attachments: files,
+        citeStyle,
+        references: readDraftReferences(),
       }),
     });
   };
@@ -128,6 +144,22 @@ export default function ProducePage() {
               </div>
             </div>
           )}
+
+          <div className="field">
+            <label>{t("ref.style")}</label>
+            <div className="segmented">
+              {CITE_STYLES.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={citeStyle === option.id}
+                  onClick={() => setCiteStyle(option.id)}
+                >
+                  {lang === "ar" ? option.ar : option.en}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <ExpertPicker value={expert} onChange={setExpert} />
 

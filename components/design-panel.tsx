@@ -185,6 +185,39 @@ export function DesignPanel({ theme, onChange }: Props) {
         </div>
       </section>
 
+      <section className="grid grid-2">
+        <div className="field">
+          <label>{t("design.pageSize")}</label>
+          <div className="segmented">
+            {(["a4", "letter"] as const).map((size) => (
+              <button
+                key={size}
+                type="button"
+                aria-pressed={theme.pageSize === size}
+                onClick={() => set({ pageSize: size, preset: "custom" })}
+              >
+                {size === "a4" ? "A4" : t("design.letter")}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="field">
+          <label>{t("design.margin")}</label>
+          <div className="segmented">
+            {(["narrow", "normal", "wide"] as const).map((margin) => (
+              <button
+                key={margin}
+                type="button"
+                aria-pressed={theme.margin === margin}
+                onClick={() => set({ margin, preset: "custom" })}
+              >
+                {t(`design.margin.${margin}` as TKey)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <p className="hint">{t("design.appliesTo")}</p>
     </div>
   );

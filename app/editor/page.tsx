@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useLang } from "@/components/lang-provider";
 import { DocEditor } from "@/components/doc-editor";
 import { DEFAULT_THEME, type DocTheme } from "@/lib/doc-theme";
+import type { CiteStyle, Reference } from "@/lib/citations";
 import { useLibrary } from "@/lib/store";
 
 const DRAFT = "sb.draft";
@@ -17,6 +18,8 @@ function Editor() {
   const [title, setTitle] = useState("");
   const [markdown, setMarkdown] = useState("");
   const [theme, setTheme] = useState<DocTheme>(DEFAULT_THEME);
+  const [references, setReferences] = useState<Reference[]>([]);
+  const [citeStyle, setCiteStyle] = useState<CiteStyle>("apa7");
   const [saved, setSaved] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -33,9 +36,16 @@ function Editor() {
       try {
         const raw = window.localStorage.getItem(DRAFT);
         if (raw) {
-          const draft = JSON.parse(raw) as { title: string; markdown: string };
+          const draft = JSON.parse(raw) as {
+            title: string;
+            markdown: string;
+            references?: Reference[];
+            citeStyle?: CiteStyle;
+          };
           setTitle(draft.title ?? "");
           setMarkdown(draft.markdown ?? "");
+          if (draft.references) setReferences(draft.references);
+          if (draft.citeStyle) setCiteStyle(draft.citeStyle);
         }
       } catch {
         /* storage disabled */
@@ -56,13 +66,16 @@ function Editor() {
     if (!loaded) return;
     const timer = setTimeout(() => {
       try {
-        window.localStorage.setItem(DRAFT, JSON.stringify({ title, markdown }));
+        window.localStorage.setItem(
+          DRAFT,
+          JSON.stringify({ title, markdown, references, citeStyle }),
+        );
       } catch {
         /* storage disabled */
       }
     }, 600);
     return () => clearTimeout(timer);
-  }, [title, markdown, loaded]);
+  }, [title, markdown, references, citeStyle, loaded]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -89,6 +102,10 @@ function Editor() {
         onChange={setMarkdown}
         theme={theme}
         onThemeChange={setTheme}
+        references={references}
+        onReferencesChange={setReferences}
+        citeStyle={citeStyle}
+        onCiteStyleChange={setCiteStyle}
         saved={saved}
         onSave={() => {
           saveItem({

@@ -20,7 +20,7 @@ import {
   type IRunOptions,
 } from "docx";
 import type { DocMeta } from "./doc-meta";
-import { DEFAULT_THEME, type DocTheme, bare, fontById, tint } from "./doc-theme";
+import { DEFAULT_THEME, type DocTheme, PAGE, bare, fontById, marginTwips, tint } from "./doc-theme";
 
 const HEADINGS = [
   HeadingLevel.HEADING_1,
@@ -355,7 +355,18 @@ export async function markdownToDocx(
     sections: [
       {
         properties: {
-          page: { margin: { top: 1440, bottom: 1440, left: 1418, right: 1418 } },
+          page: {
+            size: {
+              width: PAGE[theme.pageSize].twipsW,
+              height: PAGE[theme.pageSize].twipsH,
+            },
+            margin: {
+              top: marginTwips(theme.margin),
+              bottom: marginTwips(theme.margin),
+              left: marginTwips(theme.margin),
+              right: marginTwips(theme.margin),
+            },
+          },
         },
         headers: {
           default: new Header({

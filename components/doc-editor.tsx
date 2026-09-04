@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLang } from "./lang-provider";
 import { DesignPanel } from "./design-panel";
+import { ReferencesPanel } from "./references-panel";
 import { ExportDialog } from "./export-dialog";
 import { renderMarkdown, wordCount } from "@/lib/markdown";
 import { DEFAULT_THEME, type DocTheme, fontById, fontsHref } from "@/lib/doc-theme";
 import type { Source } from "@/lib/types";
+import type { CiteStyle, Reference } from "@/lib/citations";
 import type { TKey } from "@/lib/i18n";
 
 interface Props {
@@ -17,6 +19,10 @@ interface Props {
   theme: DocTheme;
   onThemeChange: (theme: DocTheme) => void;
   sources?: Source[];
+  references: Reference[];
+  onReferencesChange: (references: Reference[]) => void;
+  citeStyle: CiteStyle;
+  onCiteStyleChange: (style: CiteStyle) => void;
   onSave?: () => void;
   saved?: boolean;
 }
@@ -64,7 +70,7 @@ export function DocEditor(props: Props) {
   const { t, lang } = useLang();
   const { markdown, onChange, theme } = props;
   const area = useRef<HTMLTextAreaElement>(null);
-  const [tab, setTab] = useState<"write" | "design">("write");
+  const [tab, setTab] = useState<"write" | "refs" | "design">("write");
   const [exporting, setExporting] = useState(false);
   const [preview, setPreview] = useState(true);
 
@@ -81,6 +87,23 @@ export function DocEditor(props: Props) {
     link.dataset.docFonts = href;
     document.head.appendChild(link);
   }, [theme]);
+
+  const insertAtCaret = useCallback(
+    (text: string) => {
+      const el = area.current;
+      if (!el) {
+        onChange(markdown + text);
+        return;
+      }
+      const { selectionStart: start, selectionEnd: end, value } = el;
+      onChange(value.slice(0, start) + text + value.slice(end));
+      requestAnimationFrame(() => {
+        el.focus();
+        el.setSelectionRange(start + text.length, start + text.length);
+      });
+    },
+    [markdown, onChange],
+  );
 
   const apply = useCallback(
     (tool: Tool) => {
@@ -137,6 +160,12 @@ export function DocEditor(props: Props) {
           <button type="button" aria-pressed={tab === "write"} onClick={() => setTab("write")}>
             ✎ {t("ed.write")}
           </button>
+          <button type="button" aria-pressed={tab === "refs"} onClick={() => setTab("refs")}>
+            ❝ {t("ed.refs")}
+            {props.references.length > 0 && (
+              <span className="tiny muted"> ({props.references.length})</span>
+            )}
+          </button>
           <button type="button" aria-pressed={tab === "design"} onClick={() => setTab("design")}>
             ◐ {t("ed.design")}
           </button>
@@ -186,6 +215,17 @@ export function DocEditor(props: Props) {
 
       {tab === "design" ? (
         <DesignPanel theme={theme} onChange={props.onThemeChange} />
+      ) : tab === "refs" ? (
+        <ReferencesPanel
+          references={props.references}
+          onChange={props.onReferencesChange}
+          style={props.citeStyle}
+          onStyleChange={props.onCiteStyleChange}
+          onInsert={(marker) => {
+            insertAtCaret(marker);
+            setTab("write");
+          }}
+        />
       ) : (
         <>
           <div className="toolbar no-print">
@@ -242,6 +282,8 @@ export function DocEditor(props: Props) {
           markdown={markdown}
           sources={props.sources}
           theme={theme}
+          references={props.references}
+          citeStyle={props.citeStyle}
           onClose={() => setExporting(false)}
         />
       )}

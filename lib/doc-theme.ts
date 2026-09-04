@@ -16,6 +16,8 @@ export interface DocTheme {
   headingRule: boolean;
   coverStyle: "centered" | "band" | "minimal";
   tableStyle: "filled" | "lines";
+  pageSize: "a4" | "letter";
+  margin: "narrow" | "normal" | "wide";
 }
 
 export interface FontChoice {
@@ -114,6 +116,8 @@ export const PRESETS: Preset[] = [
       headingRule: true,
       coverStyle: "centered",
       tableStyle: "filled",
+      pageSize: "a4",
+      margin: "normal",
     },
   },
   {
@@ -130,6 +134,8 @@ export const PRESETS: Preset[] = [
       headingRule: false,
       coverStyle: "band",
       tableStyle: "lines",
+      pageSize: "a4",
+      margin: "normal",
     },
   },
   {
@@ -146,6 +152,8 @@ export const PRESETS: Preset[] = [
       headingRule: false,
       coverStyle: "minimal",
       tableStyle: "lines",
+      pageSize: "a4",
+      margin: "wide",
     },
   },
   {
@@ -162,6 +170,8 @@ export const PRESETS: Preset[] = [
       headingRule: true,
       coverStyle: "band",
       tableStyle: "filled",
+      pageSize: "a4",
+      margin: "normal",
     },
   },
 ];
@@ -172,6 +182,22 @@ export function presetTheme(id: string): DocTheme {
   const preset = PRESETS.find((p) => p.id === id);
   return preset ? { preset: preset.id, ...preset.theme } : DEFAULT_THEME;
 }
+
+/** Page geometry in the units each exporter needs. */
+export const PAGE = {
+  a4: { css: "A4", widthMm: 210, heightMm: 297, twipsW: 11906, twipsH: 16838 },
+  letter: { css: "Letter", widthMm: 216, heightMm: 279, twipsW: 12240, twipsH: 15840 },
+} as const;
+
+/** Margins in millimetres; Word wants twips (1mm = 56.7 twips). */
+export const MARGINS = {
+  narrow: 15,
+  normal: 25,
+  wide: 35,
+} as const;
+
+export const marginTwips = (margin: DocTheme["margin"]) =>
+  Math.round(MARGINS[margin] * 56.7);
 
 /** Hex without the leading # — the form Word and PowerPoint expect. */
 export const bare = (hex: string) => hex.replace(/^#/, "").toUpperCase();

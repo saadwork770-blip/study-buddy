@@ -3,6 +3,7 @@ import { deliverableLength, deliverableSystemPrompt } from "@/lib/prompts";
 import { type ExpertId, withExpert } from "@/lib/experts";
 import type { AiPart, Attachment } from "@/lib/types";
 import type { Lang } from "@/lib/i18n";
+import { type CiteStyle, type Reference, citationInstruction } from "@/lib/citations";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -16,6 +17,8 @@ interface Body {
   web?: boolean;
   expert?: ExpertId;
   attachments?: Attachment[];
+  citeStyle?: CiteStyle;
+  references?: Reference[];
 }
 
 export async function POST(request: Request) {
@@ -34,6 +37,9 @@ export async function POST(request: Request) {
       useWeb
         ? "You have Google Search. Use it to ground factual claims, and cite what you actually read."
         : "You have no web access. Use the attached material and your own knowledge; mark anything needing a source as [citation needed] rather than inventing one.",
+      "",
+      "",
+      citationInstruction(body.citeStyle ?? "apa7", body.references ?? [], lang),
       "",
       "Output the document itself as Markdown, starting with its title as a level-1 heading. Nothing before it, nothing after it.",
     ].join("\n"),
