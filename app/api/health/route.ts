@@ -1,4 +1,5 @@
 import { EFFORT, MODEL, errorKey, getClient } from "@/lib/ai";
+import { fallbackChain } from "@/lib/providers";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -19,7 +20,13 @@ export async function GET() {
       contents: [{ role: "user", parts: [{ text: "Reply with the single word: OK" }] }],
       config: { maxOutputTokens: 256, thinkingConfig: { thinkingBudget: 0 } },
     });
-    return Response.json({ ok: true, model: MODEL, effort: EFFORT, reply: response.text });
+    return Response.json({
+      ok: true,
+      model: MODEL,
+      effort: EFFORT,
+      reply: response.text,
+      fallbacks: fallbackChain().map((provider) => provider.label),
+    });
   } catch (err) {
     console.error("[study-buddy] health check failed:", err);
     return Response.json({

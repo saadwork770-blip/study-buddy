@@ -1,6 +1,7 @@
 import "server-only";
 import { GoogleGenAI } from "@google/genai";
 import type { AiMessage, AiPart, Attachment, Source, StreamEvent } from "./types";
+import { fallbackChain, isTextOnly, streamFromProvider } from "./providers";
 
 export const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 export const EFFORT = (process.env.AI_EFFORT || "high") as
@@ -26,7 +27,9 @@ export function getClient(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   // Checked here so the student sees a useful message instead of a raw 400.
   if (!apiKey) throw new MissingKeyError();
-  return new GoogleGenAI({ apiKey });
+  // GEMINI_BASE_URL lets the endpoint be pointed at a proxy or a test double.
+  const baseUrl = process.env.GEMINI_BASE_URL?.trim();
+  return new GoogleGenAI({ apiKey, ...(baseUrl ? { httpOptions: { baseUrl } } : {}) });
 }
 
 /** Maps a thrown error onto a translation key the browser can render. */
@@ -38,7 +41,7 @@ export function errorKey(err: unknown): string {
   const status = (err as { status?: number })?.status;
   const message = String((err as { message?: string })?.message ?? "");
   if (status === 401 || status === 403) return "error.noKey";
-  if (status === 429 || /quota|rate limit/i.test(message)) return "error.rate";
+  if (status === 429 || /quota|rate limit|RESOURCE_EXHAUSTED/i.test(message)) return "error.rate";
   if (
     status === 503 ||
     status === 500 ||
@@ -74,6 +77,13 @@ function isTransient(err: unknown): boolean {
 }
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Out of quota, rather than a transient blip — worth switching provider. */
+function isExhausted(err: unknown): boolean {
+  const status = (err as { status?: number })?.status;
+  const message = String((err as { message?: string })?.message ?? "");
+  return status === 429 || /quota|RESOURCE_EXHAUSTED|rate limit/i.test(message);
+}
 
 /**
  * Gemini's free tier returns 503 under load often enough that one attempt is
@@ -153,9 +163,10 @@ export async function streamTurn(
 ): Promise<{ text: string; sources: Source[] }> {
   const ai = getClient();
 
-  const stream = await withRetry(
-    () =>
-      ai.models.generateContentStream({
+  const openStream = () =>
+    withRetry(
+      () =>
+        ai.models.generateContentStream({
         model: MODEL,
         contents: opts.messages,
         config: {
@@ -164,9 +175,39 @@ export async function streamTurn(
           thinkingConfig: { thinkingBudget: THINKING_BUDGET[EFFORT] ?? -1 },
           ...(opts.search ? { tools: [{ googleSearch: {} }] } : {}),
         },
-      }),
-    opts.signal,
-  );
+        }),
+      opts.signal,
+    );
+
+  let stream: Awaited<ReturnType<typeof openStream>>;
+  try {
+    stream = await openStream();
+  } catch (err) {
+    // Primary is out of quota: hand the turn to a fallback provider, but only
+    // when nothing about it depends on Gemini specifically.
+    const chain = fallbackChain();
+    if (!isExhausted(err) || !chain.length || opts.search || !isTextOnly(opts.messages)) {
+      throw err;
+    }
+    for (const provider of chain) {
+      try {
+        if (opts.statusLabels?.thinking) {
+          emit({ type: "status", label: "out.fallback" });
+        }
+        const answer = await streamFromProvider(
+          provider,
+          opts.system,
+          opts.messages,
+          (delta) => emit({ type: "text", text: delta }),
+          { maxTokens: Math.min(opts.maxTokens ?? 8192, 8192), signal: opts.signal },
+        );
+        if (answer.trim()) return { text: answer, sources: [] };
+      } catch (fallbackError) {
+        console.warn(`[study-buddy] fallback ${provider.id} failed:`, fallbackError);
+      }
+    }
+    throw err;
+  }
 
   const sources = new Map<string, Source>();
   let text = "";

@@ -173,6 +173,7 @@ const dict = {
     "out.delete": "حذف",
     "out.result": "النتيجة",
     "out.thinking": "يفكّر…",
+    "out.fallback": "حصّة Gemini انتهت — أُكمل عبر مزوّد بديل…",
 
     "common.cancel": "إلغاء",
     "common.save": "حفظ",
@@ -473,6 +474,7 @@ const dict = {
     "out.delete": "Delete",
     "out.result": "Result",
     "out.thinking": "Thinking…",
+    "out.fallback": "Gemini quota is spent — continuing on a backup provider…",
 
     "common.cancel": "Cancel",
     "common.save": "Save",

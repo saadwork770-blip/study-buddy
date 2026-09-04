@@ -167,6 +167,38 @@ npm run check
 home page runs the same check itself (`/api/health`) on every load — green when
 Gemini is reachable, red with the exact reason when it is not.
 
+### مزوّدات احتياطية · Backup providers
+
+الطبقة المجانية من Gemini لها سقف يومي. يمكنك إضافة مزوّدات مجانية أخرى، فيتحوّل
+التطبيق إليها تلقائياً عند نفاد الحصّة — وبذلك تتضاعف قدرتك اليومية بلا تكلفة:
+
+| المزوّد | الحصّة المجانية | المتغيّر |
+|---|---|---|
+| **Groq** | مجاني بلا بطاقة، سريع جداً | `GROQ_API_KEY` |
+| **Cerebras** | مجاني بلا بطاقة | `CEREBRAS_API_KEY` |
+| **OpenRouter** | نماذج بلاحقة `:free` | `OPENROUTER_API_KEY` |
+| **Mistral** | طبقة تجريبية مجانية | `MISTRAL_API_KEY` |
+| **GitHub Models** | مجاني بمفتاح GitHub، لكن الإدخال محدود بـ 8K | `GITHUB_MODELS_TOKEN` |
+
+أضِف أيّاً منها في Vercel ضمن Environment Variables. الترتيب يُضبط بـ `FALLBACK_ORDER`.
+
+**No repository can give you extra tokens** — quota is per-account with the
+provider, and any repo offering "free API access" is a proxy over shared or
+stolen keys. What actually raises your ceiling is stacking free tiers: configure
+any of the above and the app switches to the first working one the moment
+Gemini returns a quota error, which multiplies how much you get per day for
+free.
+
+The fallbacks are text-only, and the app is careful about it: a request that
+uses **Google Search grounding** or reads a **file uploaded to Gemini** is never
+silently downgraded — it reports the quota error instead, because a brief
+without its citations or a summary that never saw the PDF would be worse than
+an honest failure. Requests whose attachments were read as text in the browser
+(Word, PowerPoint, Excel) do fall back, since that text travels fine.
+
+Each provider also takes `<ID>_MODEL` to override the model and `<ID>_BASE_URL`
+to point at a proxy or gateway.
+
 ---
 
 ## البنية · Project structure
