@@ -4,40 +4,53 @@ import JSZip from "jszip";
 import mammoth from "mammoth/mammoth.browser";
 import type { Attachment } from "./types";
 
-/** Gemini reads these natively; everything else is turned into text here. */
-const NATIVE = [
-  "application/pdf",
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/heic",
-  "image/heif",
-  "text/plain",
-  "text/markdown",
-  "text/csv",
-];
+/**
+ * The only types worth sending to the Files API. Everything else is read as
+ * text in the browser, which is smaller and has fewer ways to fail.
+ */
+const BY_EXTENSION: Record<string, string> = {
+  pdf: "application/pdf",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  heic: "image/heic",
+  heif: "image/heif",
+};
+
+const extensionOf = (name: string) => name.split(".").pop()?.toLowerCase() ?? "";
+
+/**
+ * iOS Safari hands back files with an empty `type` when they come from the
+ * Files app or iCloud Drive. Sending "application/octet-stream" in that case
+ * makes the Files API reject the upload, so resolve the type from the name.
+ */
+function resolveMime(file: File): string | null {
+  const fromName = BY_EXTENSION[extensionOf(file.name)];
+  if (fromName) return fromName;
+  if (file.type && Object.values(BY_EXTENSION).includes(file.type)) return file.type;
+  return null;
+}
 
 /** An Error carrying both a translation key and the raw cause, for display. */
 export function detailed(key: string, detail: string): Error & { detail: string } {
   return Object.assign(new Error(key), { detail });
 }
 
-const isNative = (file: File) =>
-  NATIVE.includes(file.type) || /\.(pdf|png|jpe?g|webp|txt|md|csv)$/i.test(file.name);
+const isNative = (file: File) => resolveMime(file) !== null;
 
 /**
  * Sends the file straight to Google's Files API using a session minted by our
  * server, so nothing large passes through the app and no size cap applies.
  */
 async function toGoogle(file: File, onProgress?: (pct: number) => void): Promise<Attachment> {
+  const mimeType = resolveMime(file);
+  if (!mimeType) throw detailed("error.fileType", `unrecognised type for ${file.name}`);
+
   const session = await fetch("/api/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: file.name,
-      mimeType: file.type || "application/octet-stream",
-      size: file.size,
-    }),
+    body: JSON.stringify({ name: file.name, mimeType, size: file.size }),
   });
   const body = (await session.json().catch(() => ({}))) as {
     uploadUrl?: string;
@@ -57,6 +70,7 @@ async function toGoogle(file: File, onProgress?: (pct: number) => void): Promise
       xhr.open("POST", body.uploadUrl!);
       xhr.setRequestHeader("X-Goog-Upload-Command", "upload, finalize");
       xhr.setRequestHeader("X-Goog-Upload-Offset", "0");
+      xhr.setRequestHeader("Content-Type", mimeType);
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
       };
@@ -93,7 +107,7 @@ async function toGoogle(file: File, onProgress?: (pct: number) => void): Promise
 
   return {
     name: file.name,
-    mimeType: uploaded.file?.mimeType || file.type || "application/pdf",
+    mimeType: uploaded.file?.mimeType || mimeType,
     size: file.size,
     fileUri: uri,
   };
@@ -169,14 +183,14 @@ async function toText(file: File): Promise<Attachment> {
     text = await officeXmlText(file, "xlsx");
   } else if (/\.(doc|ppt|xls)$/.test(name)) {
     // The pre-2007 binary formats are not zip-based and cannot be read here.
-    throw new Error("error.fileOld");
-  } else if (/\.(txt|md|markdown|csv|tsv|json|html?|tex|rtf)$/.test(name)) {
+    throw detailed("error.fileOld", `${file.name} is a pre-2007 binary format`);
+  } else if (/\.(txt|md|markdown|csv|tsv|json|html?|tex|rtf|log|yml|yaml)$/.test(name)) {
     text = await file.text();
   } else {
-    throw new Error("error.fileType");
+    throw detailed("error.fileType", `unsupported file: ${file.name}`);
   }
 
-  if (!text.trim()) throw new Error("error.fileEmpty");
+  if (!text.trim()) throw detailed("error.fileEmpty", `no text found in ${file.name}`);
   return { name: file.name, mimeType: "text/plain", size: file.size, text };
 }
 

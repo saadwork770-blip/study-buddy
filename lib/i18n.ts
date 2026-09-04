@@ -236,7 +236,7 @@ const dict = {
     "produce.check": "راجِع المحتوى قبل التسليم، وأكمِل أي موضع مكتوب فيه [مرجع مطلوب].",
 
     "error.noKey":
-      "لم يتم ضبط مفتاح GEMINI_API_KEY. احصل على مفتاح مجاني من aistudio.google.com/apikey وأضِفه إلى ‎.env.local.",
+      "لم يتم ضبط مفتاح GEMINI_API_KEY أو أنه مرفوض. أضِفه في Vercel ضمن Settings ← Environment Variables ثم أعد النشر (أو في ‎.env.local محلياً).",
     "error.rate": "تم بلوغ حصّة الطبقة المجانية مؤقتاً. انتظر قليلاً ثم أعد المحاولة.",
     "error.busy": "خوادم Gemini مزدحمة الآن. حاولتُ ثلاث مرات — أعد المحاولة بعد قليل.",
     "error.generic": "تعذّر إكمال الطلب. حاول مرة أخرى.",
@@ -473,7 +473,7 @@ const dict = {
     "produce.check": "Check the content before submitting, and fill in anything marked [citation needed].",
 
     "error.noKey":
-      "GEMINI_API_KEY is not set. Get a free key at aistudio.google.com/apikey and add it to .env.local.",
+      "GEMINI_API_KEY is missing or rejected. Add it in Vercel under Settings → Environment Variables and redeploy (or in .env.local when running locally).",
     "error.rate": "Free-tier quota reached for now. Wait a moment and try again.",
     "error.busy": "Gemini is busy right now. I retried three times — please try again shortly.",
     "error.generic": "The request could not be completed. Please try again.",
