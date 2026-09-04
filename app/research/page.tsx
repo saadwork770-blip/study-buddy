@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useLang } from "@/components/lang-provider";
 import { OutputPanel } from "@/components/output-panel";
+import { ExpertPicker } from "@/components/expert-picker";
 import { useStream } from "@/lib/use-stream";
 import type { TKey } from "@/lib/i18n";
 
@@ -19,13 +20,15 @@ export default function ResearchPage() {
   const [field, setField] = useState("");
   const [depth, setDepth] = useState("standard");
   const [web, setWeb] = useState(true);
+  // The literature-review specialist is the default voice for this page.
+  const [expert, setExpert] = useState<string | null>("research-synthesist");
 
   const start = () => {
     if (!question.trim() || stream.running) return;
     void stream.run("/api/research", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, field, depth, web, lang }),
+      body: JSON.stringify({ question, field, depth, web, lang, expert }),
     });
   };
 
@@ -83,6 +86,8 @@ export default function ResearchPage() {
               ))}
             </div>
           </div>
+
+          <ExpertPicker value={expert} onChange={setExpert} />
 
           <div className="field">
             <label className="checkbox">

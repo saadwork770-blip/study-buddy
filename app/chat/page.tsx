@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLang } from "@/components/lang-provider";
 import { Markdown } from "@/components/markdown";
+import { ExpertPicker } from "@/components/expert-picker";
 import { useLibrary } from "@/lib/store";
 import { readNdjson } from "@/lib/stream";
 import { exportPayload } from "@/lib/export";
@@ -25,6 +26,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [mode, setMode] = useState("tutor");
   const [subject, setSubject] = useState("");
+  const [expert, setExpert] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -53,7 +55,7 @@ export default function ChatPage() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history, lang, mode, subject }),
+        body: JSON.stringify({ messages: history, lang, mode, subject, expert }),
         signal: abort.signal,
       });
 
@@ -165,6 +167,9 @@ export default function ChatPage() {
             placeholder={t("chat.subject")}
             style={{ flex: 1, minWidth: 180 }}
           />
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <ExpertPicker value={expert} onChange={setExpert} />
         </div>
       </div>
 

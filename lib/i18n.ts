@@ -187,6 +187,17 @@ const dict = {
     "common.loading": "جارٍ التحميل…",
     "common.words": "كلمة",
 
+    "expert.label": "الخبير المرافق",
+    "expert.none": "عام",
+    "expert.hint": "اختر تخصصاً ليجيبك بمنهجية ذلك المجال.",
+    "expert.research-synthesist": "محلّل الأدبيات",
+    "expert.academic-statistician": "الإحصائي",
+    "expert.grant-writer": "كاتب المِنَح",
+    "expert.research-synthesist.about": "مراجعة الأدبيات، تقييم المصادر، وتتبّع الاقتباسات الدائرية.",
+    "expert.academic-statistician.about": "تصميم الدراسات، الاستدلال الإحصائي، وقياس حجم الأثر وعدم اليقين.",
+    "expert.grant-writer.about": "مقترحات البحث، خطابات الاهتمام، وسرد الميزانية.",
+    "expert.credit": "شخصيات الخبراء مقتبسة من مشروع agency-agents برخصة MIT.",
+
     "error.noKey":
       "لم يتم ضبط مفتاح ANTHROPIC_API_KEY. أضِفه إلى ملف ‎.env.local ثم أعد تشغيل الخادم.",
     "error.rate": "تم تجاوز حد الطلبات. انتظر قليلاً ثم أعد المحاولة.",
@@ -374,6 +385,17 @@ const dict = {
     "common.retry": "Try again",
     "common.loading": "Loading…",
     "common.words": "words",
+
+    "expert.label": "Specialist",
+    "expert.none": "General",
+    "expert.hint": "Pick a specialism to get answers with that field's methodology.",
+    "expert.research-synthesist": "Research Synthesist",
+    "expert.academic-statistician": "Statistician",
+    "expert.grant-writer": "Grant Writer",
+    "expert.research-synthesist.about": "Literature review, source grading and tracing circular citations.",
+    "expert.academic-statistician.about": "Study design, statistical inference, effect sizes and uncertainty.",
+    "expert.grant-writer.about": "Research proposals, letters of inquiry and budget narratives.",
+    "expert.credit": "Specialist personas adapted from the MIT-licensed agency-agents project.",
 
     "error.noKey":
       "ANTHROPIC_API_KEY is not set. Add it to .env.local and restart the server.",

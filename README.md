@@ -25,6 +25,32 @@ An AI study companion for master's students: assignment planning, research, summ
 - تصدير CSV يبدأ بعلامة BOM حتى يقرأ Excel العربية بشكل صحيح.
 - ملفات PDF تُطبع عبر المتصفح، فيتكفّل بتشكيل الحروف ووصلها بدل أن تكسرها مكتبة PDF.
 
+
+### الخبراء المتخصصون · Specialist personas
+
+في صفحتي **البحث العلمي** و**المذاكرة** يمكنك اختيار خبير يجيبك بمنهجية مجاله:
+
+| | الخبير | Specialist | يفيدك في |
+|---|---|---|---|
+| 🔍 | محلّل الأدبيات | Research Synthesist | مراجعة الأدبيات، تدرّج قوة المصادر، وكشف الاقتباس الدائري (افتراضي في صفحة البحث) |
+| 📊 | الإحصائي | Statistician | تصميم الدراسات، الاستدلال، حجم الأثر وعدم اليقين بدل الاكتفاء بـ p < 0.05 |
+| 📝 | كاتب المِنَح | Grant Writer | مقترحات البحث، خطابات الاهتمام، وسرد الميزانية |
+
+هذه الشخصيات مقتبسة من مشروع [agency-agents](https://github.com/msitarzewski/agency-agents)
+برخصة MIT، وتُحفظ في مجلّد `agents/` (انظر `agents/NOTICE.md`). النصوص الكاملة تبقى على
+الخادم ولا تُرسل إلى المتصفح؛ ولا يمكن لأي شخصية أن تتجاوز قواعد اللغة أو النزاهة الأكاديمية،
+لأن التطبيق يعيد تأكيدها بعد نص الشخصية.
+
+The three vendored personas come from the MIT-licensed
+[agency-agents](https://github.com/msitarzewski/agency-agents) project and live in `agents/`
+(see `agents/NOTICE.md` for the licence and for why only three of its roster are used — most
+of that repo, including its `academic/` division, is written for **worldbuilding and fiction**,
+which would misfire badly for a postgraduate student). `scripts/build-experts.mjs` compiles them
+into a server module plus a small client metadata module, so ~12,000 words of persona text stay
+on the server. A persona is appended *after* the app's own rules, and a precedence paragraph
+after it re-asserts the language, citation and academic-integrity rules, so a vendored prompt
+cannot override them.
+
 ---
 
 ## التشغيل · Getting started
