@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLang } from "@/components/lang-provider";
+import { SetupCheck } from "@/components/setup-check";
 import type { TKey } from "@/lib/i18n";
 
 const CARDS: { href: string; icon: string; title: TKey; body: TKey }[] = [
@@ -18,6 +19,8 @@ export default function HomePage() {
 
   return (
     <main className="page">
+      <SetupCheck />
+
       <section className="hero">
         <h1>{t("app.tagline")}</h1>
         <p>{t("app.description")}</p>

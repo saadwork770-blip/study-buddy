@@ -142,6 +142,11 @@ export async function streamTurn(
         emit({ type: "text", text: event.delta.text ?? "" });
       }
     }
+    // An aborted stream rejects on finalMessage(); the caller stopped on
+    // purpose, so hand back an empty message instead of an error.
+    if (opts.signal?.aborted) {
+      return { content: [], stop_reason: null } as unknown as Anthropic.Message;
+    }
     return (await stream.finalMessage()) as Anthropic.Message;
   };
 

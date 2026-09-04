@@ -132,6 +132,24 @@ npm ci && npm run build && npm start    # PORT=3000
 
 ضَع `ANTHROPIC_API_KEY` في بيئة التشغيل، وارفع `NEXT_PUBLIC_MAX_UPLOAD_MB` إلى ٢٠ لأن حدّ ٤٫٥ ميغابايت خاصّ بـ Vercel وحدها.
 
+
+### تأكّد أنه يعمل · Verify it works
+
+قبل النشر، تحقّق من المفتاح في ثانيتين:
+
+```bash
+npm run check
+```
+
+يخبرك مباشرة: المفتاح يعمل، أو مرفوض، أو لا يوجد رصيد في الحساب.
+
+وبعد التشغيل، تعرض الصفحة الرئيسية حالة الاتصال تلقائياً: شريط أخضر إن كان كل شيء
+جاهزاً، أو شريط أحمر يذكر سبب الفشل بالضبط — فلا تكتشف المشكلة وأنت في منتصف بحثك.
+
+`npm run check` verifies the key against the real API before you deploy, and the
+home page runs the same check itself (`/api/health`) on every load — green when
+Claude is reachable, red with the exact reason when it is not.
+
 ---
 
 ## البنية · Project structure

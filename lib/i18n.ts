@@ -198,6 +198,11 @@ const dict = {
     "expert.grant-writer.about": "مقترحات البحث، خطابات الاهتمام، وسرد الميزانية.",
     "expert.credit": "شخصيات الخبراء مقتبسة من مشروع agency-agents برخصة MIT.",
 
+    "health.checking": "جارٍ التحقّق من الاتصال…",
+    "health.ok": "متصل بـ Claude ({model}) — كل الميزات جاهزة.",
+    "health.fail": "الاتصال غير مكتمل",
+    "health.detail": "التفاصيل",
+
     "error.noKey":
       "لم يتم ضبط مفتاح ANTHROPIC_API_KEY. أضِفه إلى ملف ‎.env.local ثم أعد تشغيل الخادم.",
     "error.rate": "تم تجاوز حد الطلبات. انتظر قليلاً ثم أعد المحاولة.",
@@ -396,6 +401,11 @@ const dict = {
     "expert.academic-statistician.about": "Study design, statistical inference, effect sizes and uncertainty.",
     "expert.grant-writer.about": "Research proposals, letters of inquiry and budget narratives.",
     "expert.credit": "Specialist personas adapted from the MIT-licensed agency-agents project.",
+
+    "health.checking": "Checking the connection…",
+    "health.ok": "Connected to Claude ({model}) — every feature is ready.",
+    "health.fail": "Not connected",
+    "health.detail": "Details",
 
     "error.noKey":
       "ANTHROPIC_API_KEY is not set. Add it to .env.local and restart the server.",
