@@ -82,7 +82,11 @@ export function attachmentParts(attachments: Attachment[] | undefined): AiPart[]
 
 type Emit = (event: StreamEvent) => void;
 
-const TRANSIENT = new Set([429, 500, 502, 503, 504]);
+// 429 is deliberately absent: a spent daily quota does not refill in the two
+// seconds a backoff would wait, so retrying it just makes the student watch a
+// spinner before the fallback they were always going to get. The model walk
+// and the provider chain handle it instead.
+const TRANSIENT = new Set([500, 502, 503, 504]);
 
 function isTransient(err: unknown): boolean {
   const status = (err as { status?: number })?.status;

@@ -8,9 +8,18 @@ import { KEY_FIELDS, type UserKeys, keysForRequest, readKeys, writeKeys } from "
 interface Probe {
   ok: boolean;
   model?: string;
+  degraded?: boolean;
   reason?: string;
   detail?: string;
-  probed?: { id: string; label: string; ok: boolean; reason?: string; detail?: string }[];
+  probed?: {
+    id: string;
+    label: string;
+    ok: boolean;
+    model?: string;
+    reply?: string;
+    reason?: string;
+    detail?: string;
+  }[];
 }
 
 /**
@@ -132,7 +141,9 @@ export default function SettingsPage() {
                 label: "Gemini",
                 ok: result.ok,
                 note: result.ok
-                  ? result.model
+                  ? [result.model, result.degraded ? t("settings.degraded") : ""]
+                      .filter(Boolean)
+                      .join(" · ")
                   : t((result.reason ?? "error.generic") as TKey),
               },
               ...(result.probed ?? []).map((provider) => ({
@@ -140,8 +151,12 @@ export default function SettingsPage() {
                 label: provider.label,
                 ok: provider.ok,
                 note: provider.ok
-                  ? t("settings.works")
-                  : [t((provider.reason ?? "error.generic") as TKey), provider.detail]
+                  ? [t("settings.works"), provider.model].filter(Boolean).join(" · ")
+                  : [
+                      t((provider.reason ?? "error.generic") as TKey),
+                      provider.model,
+                      provider.detail,
+                    ]
                       .filter(Boolean)
                       .join(" · "),
               })),

@@ -1,17 +1,23 @@
-import { EFFORT, MODEL, errorKey, getClient } from "@/lib/ai";
-import { configuredProviders, streamFromProvider } from "@/lib/providers";
+import { EFFORT, MODEL, MODEL_FALLBACKS, errorKey, getClient } from "@/lib/ai";
+import { configuredProviders, currentModel, streamFromProvider } from "@/lib/providers";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
+
+/** A model is spent for the day rather than broken. */
+const isExhausted = (err: unknown) =>
+  (err as { status?: number })?.status === 429 ||
+  /quota|RESOURCE_EXHAUSTED|rate limit/i.test(String((err as Error)?.message ?? ""));
 
 /**
  * Setup check: proves a key can actually reach Gemini. The home page calls
  * this so a misconfigured deploy says so instead of failing later inside a
  * feature the student is trying to use.
  *
- * It is a POST because the working key may be the one the student pasted into
- * the settings page, which lives in their browser and travels in the body.
+ * It walks the sibling models exactly as the real request path does, because
+ * Gemini counts free quota per model: reporting the primary as broken while
+ * the app is happily serving from a sibling would be a lie.
  */
 async function check(keys?: Record<string, string>) {
   const hasKey =
@@ -28,38 +34,48 @@ async function check(keys?: Record<string, string>) {
     });
   }
 
-  try {
-    const response = await getClient(keys).models.generateContent({
-      model: MODEL,
-      contents: [{ role: "user", parts: [{ text: "Reply with the single word: OK" }] }],
-      config: { maxOutputTokens: 256, thinkingConfig: { thinkingBudget: 0 } },
-    });
-    return Response.json({
-      ok: true,
-      model: MODEL,
-      effort: EFFORT,
-      reply: response.text,
-      fallbacks: backups,
-    });
-  } catch (err) {
-    console.error("[study-buddy] health check failed:", err);
-    return Response.json({
-      ok: false,
-      reason: errorKey(err),
-      detail: err instanceof Error ? err.message : String(err),
-      fallbacks: backups,
-    });
-  }
-}
+  const client = getClient(keys);
+  let lastError: unknown;
 
-export async function GET() {
-  return check();
+  for (const model of [MODEL, ...MODEL_FALLBACKS]) {
+    try {
+      const response = await client.models.generateContent({
+        model,
+        contents: [{ role: "user", parts: [{ text: "Reply with the single word: OK" }] }],
+        config: { maxOutputTokens: 256, thinkingConfig: { thinkingBudget: 0 } },
+      });
+      return Response.json({
+        ok: true,
+        model,
+        // Says so plainly when the primary is spent but the app still works.
+        degraded: model !== MODEL,
+        effort: EFFORT,
+        reply: response.text,
+        fallbacks: backups,
+      });
+    } catch (err) {
+      lastError = err;
+      if (!isExhausted(err)) break;
+    }
+  }
+
+  console.error("[study-buddy] health check failed:", lastError);
+  return Response.json({
+    ok: false,
+    reason: errorKey(lastError),
+    detail: lastError instanceof Error ? lastError.message : String(lastError),
+    fallbacks: backups,
+  });
 }
 
 /**
- * Sends one tiny completion to each backup provider, so a key the student
- * just pasted is confirmed against the real API rather than merely looking
+ * Sends one real completion to each backup provider, so a key the student
+ * just pasted is confirmed against the API rather than merely looking
  * present. Reports per-provider rather than failing the whole check.
+ *
+ * The budget is deliberately generous: a reasoning model spends tokens
+ * thinking before it writes anything, and a probe that starves it would
+ * report a perfectly good key as broken.
  */
 async function probeBackups(keys?: Record<string, string>) {
   const providers = configuredProviders(keys);
@@ -68,25 +84,37 @@ async function probeBackups(keys?: Record<string, string>) {
       try {
         const text = await streamFromProvider(
           provider,
-          "Reply with the single word: OK",
-          [{ role: "user", parts: [{ text: "OK" }] }],
+          "Reply with the single word: OK.",
+          [{ role: "user", parts: [{ text: "Say OK." }] }],
           () => {},
-          { maxTokens: 16, userKeys: keys },
+          { maxTokens: 512, userKeys: keys },
         );
-        return { id: provider.id, label: provider.label, ok: Boolean(text.trim()) };
+        return {
+          id: provider.id,
+          label: provider.label,
+          ok: true,
+          model: currentModel(provider),
+          reply: text.trim().slice(0, 40),
+        };
       } catch (err) {
         const status = (err as { status?: number })?.status;
+        const key = (err as { key?: string })?.key;
         return {
           id: provider.id,
           label: provider.label,
           ok: false,
+          model: currentModel(provider),
           // 401/403 is the case worth naming: the key itself was rejected.
-          reason: status === 401 || status === 403 ? "error.noKey" : "error.generic",
+          reason: key ?? (status === 401 || status === 403 ? "error.noKey" : "error.generic"),
           detail: `HTTP ${status ?? "?"} ${(err as { detail?: string })?.detail ?? ""}`.trim(),
         };
       }
     }),
   );
+}
+
+export async function GET() {
+  return check();
 }
 
 export async function POST(request: Request) {

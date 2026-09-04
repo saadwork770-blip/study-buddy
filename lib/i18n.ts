@@ -333,6 +333,7 @@ const dict = {
     "settings.verify": "تحقّق من عمل المفاتيح",
     "settings.verifying": "جارٍ التحقّق…",
     "settings.works": "يعمل",
+    "settings.degraded": "النموذج الأساسي مستهلك، ويعمل على نموذج بديل",
     "settings.upload": "فحص رفع الملفات",
     "settings.privacy": "تُخزَّن المفاتيح في هذا المتصفح وحده، ولا تُحفظ على الخادم. امسحها بالزر ✕ في أي وقت. إن كان الموقع منشوراً بمفتاح في Vercel فهو الأسبق، وما تضيفه هنا يُستخدم كاحتياطي.",
 
@@ -342,6 +343,7 @@ const dict = {
       "لا يوجد مفتاح Gemini، لكن لديك مزوّداً احتياطياً. المحادثة والتلخيص وكتابة الوثائق تعمل؛ أمّا رفع الملفات والبحث في الويب فيحتاجان مفتاح Gemini من صفحة «الإعدادات».",
     "error.rate": "انتهت حصّتك اليومية المجانية من Gemini لهذا النموذج. جرّبتُ النماذج البديلة وكلّها مستهلكة. الحلّ: افتح صفحة «الإعدادات» والصق مفتاح Groq مجاني من console.groq.com/keys — يستغرق دقيقة، أو انتظر إعادة ضبط الحصّة.",
     "error.busy": "خوادم Gemini مزدحمة الآن. حاولتُ ثلاث مرات — أعد المحاولة بعد قليل.",
+    "error.emptyReply": "قبِل المزوّد المفتاح لكنه لم يُعِد أي نص. المفتاح سليم؛ المشكلة في النموذج.",
     "error.generic": "تعذّر إكمال الطلب. حاول مرة أخرى.",
     "error.fileTooBig": "حجم الملف كبير جداً (الحد {n} ميغابايت).",
     "error.fileType": "نوع الملف غير مدعوم.",
@@ -673,6 +675,7 @@ const dict = {
     "settings.verify": "Check the keys work",
     "settings.verifying": "Checking…",
     "settings.works": "Working",
+    "settings.degraded": "primary model spent, running on a sibling",
     "settings.upload": "Upload diagnostics",
     "settings.privacy": "Keys are kept in this browser only and are never stored on the server. Clear one any time with ✕. A key deployed with the site takes precedence; anything you add here is used as backup.",
 
@@ -682,6 +685,7 @@ const dict = {
       "No Gemini key, but you do have a backup provider. Chat, summaries and document drafting work; file uploads and web search need a Gemini key from the Settings page.",
     "error.rate": "Your daily free Gemini quota for this model is used up. I tried the sibling models and they are spent too. Fix: open the Settings page and paste a free Groq key from console.groq.com/keys — it takes a minute — or wait for the quota to reset.",
     "error.busy": "Gemini is busy right now. I retried three times — please try again shortly.",
+    "error.emptyReply": "The provider accepted the key but returned no text. The key is fine; the model is the problem.",
     "error.generic": "The request could not be completed. Please try again.",
     "error.fileTooBig": "That file is too large ({n} MB max).",
     "error.fileType": "That file type is not supported.",

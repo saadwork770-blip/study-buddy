@@ -21,6 +21,19 @@ export interface Provider {
   envModel: string;
   /** What the free tier gives you, for the setup docs. */
   free: string;
+  /**
+   * Narrows what model discovery may pick for this provider — OpenRouter
+   * lists paid models alongside free ones, and every provider lists
+   * speech and embedding models that cannot hold a conversation.
+   */
+  usable?: (model: ModelInfo) => boolean;
+}
+
+/** One entry from an OpenAI-compatible `/models` listing. */
+export interface ModelInfo {
+  id: string;
+  /** OpenRouter prices per model; "0" marks the free tier. */
+  pricing?: { prompt?: string; completion?: string };
 }
 
 export const PROVIDERS: Provider[] = [
@@ -29,7 +42,7 @@ export const PROVIDERS: Provider[] = [
     label: "Groq",
     envKey: "GROQ_API_KEY",
     baseUrl: "https://api.groq.com/openai/v1",
-    defaultModel: "openai/gpt-oss-120b",
+    defaultModel: "llama-3.3-70b-versatile",
     envModel: "GROQ_MODEL",
     free: "Free tier, no card. Very fast; ~30 requests/minute.",
   },
@@ -38,7 +51,7 @@ export const PROVIDERS: Provider[] = [
     label: "Cerebras",
     envKey: "CEREBRAS_API_KEY",
     baseUrl: "https://api.cerebras.ai/v1",
-    defaultModel: "llama-3.3-70b",
+    defaultModel: "llama3.3-70b",
     envModel: "CEREBRAS_MODEL",
     free: "Free tier, no card. High throughput.",
   },
@@ -50,6 +63,9 @@ export const PROVIDERS: Provider[] = [
     defaultModel: "meta-llama/llama-3.3-70b-instruct:free",
     envModel: "OPENROUTER_MODEL",
     free: "Free models via the :free suffix; roughly 50 requests/day.",
+    // Its catalogue is mostly paid, and a paid model would bill the student.
+    usable: (model) =>
+      model.id.endsWith(":free") || model.pricing?.prompt === "0",
   },
   {
     id: "mistral",
@@ -106,6 +122,82 @@ function toChatMessages(system: string, messages: AiMessage[]) {
   ].filter((message) => message.content.trim());
 }
 
+const baseUrlFor = (provider: Provider) =>
+  process.env[`${provider.id.toUpperCase()}_BASE_URL`]?.trim() || provider.baseUrl;
+
+/** Models that exist but cannot answer a chat turn. */
+const NOT_CHAT = /whisper|tts|embed|guard|moderation|rerank|ocr|image|vision-only|sora|dall/i;
+
+/** Preferred shapes, best first — a big instruct model beats a tiny one. */
+const RANK = [
+  /llama[-.]?3\.3.*70b/i,
+  /llama[-.]?4/i,
+  /qwen.*(72b|32b)/i,
+  /deepseek/i,
+  /mistral|mixtral/i,
+  /llama[-.]?3\.1.*70b/i,
+  /gemma/i,
+  /llama/i,
+];
+
+const rankOf = (id: string) => {
+  const index = RANK.findIndex((pattern) => pattern.test(id));
+  return index === -1 ? RANK.length : index;
+};
+
+/**
+ * A model id that worked, remembered per provider. Providers rename and
+ * retire models without warning, so a hard-coded id is a slow leak; this
+ * keeps the discovered replacement for the life of the server instance.
+ */
+const discovered = new Map<string, string>();
+
+/** Asks a provider what it actually serves right now. */
+export async function listModels(
+  provider: Provider,
+  key: string,
+  signal?: AbortSignal,
+): Promise<ModelInfo[]> {
+  const response = await fetch(`${baseUrlFor(provider)}/models`, {
+    headers: { Authorization: `Bearer ${key}` },
+    signal,
+  });
+  if (!response.ok) return [];
+  const body = (await response.json().catch(() => ({}))) as { data?: ModelInfo[] };
+  return body.data ?? [];
+}
+
+/**
+ * Picks a model the provider will accept, given that the configured one was
+ * rejected. Returns undefined when nothing usable is on offer, which is a
+ * real answer: the key works but the account has no chat model.
+ */
+export async function discoverModel(
+  provider: Provider,
+  key: string,
+  rejected: string[],
+  signal?: AbortSignal,
+): Promise<string | undefined> {
+  const models = await listModels(provider, key, signal).catch(() => []);
+  const usable = models
+    .filter((model) => model.id && !NOT_CHAT.test(model.id))
+    .filter((model) => !rejected.includes(model.id))
+    .filter((model) => (provider.usable ? provider.usable(model) : true))
+    .sort((a, b) => rankOf(a.id) - rankOf(b.id) || a.id.localeCompare(b.id));
+  return usable[0]?.id;
+}
+
+/**
+ * True when the provider rejected the model rather than the key or the
+ * request — the case worth retrying with a different model. Providers
+ * disagree on the status code, so the message matters as much as the code.
+ */
+function isModelProblem(status: number | undefined, detail: string): boolean {
+  if (status === 404) return true;
+  if (status !== 400 && status !== 422) return false;
+  return /model|decommission|unavailable|not found|does not exist/i.test(detail);
+}
+
 /** True when a request can be served by a text-only fallback. */
 export function isTextOnly(messages: AiMessage[]): boolean {
   return messages.every((message) =>
@@ -118,30 +210,26 @@ export interface FallbackResult {
   sources: Source[];
 }
 
-/**
- * Streams one turn from an OpenAI-compatible provider, emitting text as it
- * arrives. Throws on any non-2xx so the caller can try the next provider.
- */
-export async function streamFromProvider(
+/** Raised when a provider answers 200 but says nothing usable. */
+export class EmptyReplyError extends Error {
+  readonly key = "error.emptyReply";
+  constructor(public model: string) {
+    super(`empty completion from ${model}`);
+    this.name = "EmptyReplyError";
+  }
+}
+
+/** One streaming call against a specific model. Throws on any non-2xx. */
+async function callProvider(
   provider: Provider,
+  model: string,
+  key: string,
   system: string,
   messages: AiMessage[],
   onText: (delta: string) => void,
-  options: {
-    maxTokens?: number;
-    signal?: AbortSignal;
-    json?: boolean;
-    userKeys?: UserKeys;
-  } = {},
+  options: { maxTokens?: number; signal?: AbortSignal; json?: boolean },
 ): Promise<string> {
-  const key = keyFor(provider, options.userKeys)!;
-  const model = process.env[provider.envModel]?.trim() || provider.defaultModel;
-  // <ID>_BASE_URL redirects a provider at a proxy, a self-hosted gateway, or a
-  // stub during testing.
-  const baseUrl =
-    process.env[`${provider.id.toUpperCase()}_BASE_URL`]?.trim() || provider.baseUrl;
-
-  const response = await fetch(`${baseUrl}/chat/completions`, {
+  const response = await fetch(`${baseUrlFor(provider)}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -162,6 +250,7 @@ export async function streamFromProvider(
     throw Object.assign(new Error(`${provider.id} HTTP ${response.status}`), {
       status: response.status,
       detail: detail.slice(0, 300),
+      model,
     });
   }
 
@@ -197,5 +286,71 @@ export async function streamFromProvider(
     }
   }
 
+  // A reasoning model given too small a budget spends it all before writing
+  // any content, so 200-with-nothing is a model problem, not success.
+  if (!text.trim()) throw new EmptyReplyError(model);
+
   return text;
 }
+
+/**
+ * Streams one turn from an OpenAI-compatible provider, emitting text as it
+ * arrives.
+ *
+ * Providers rename and retire models constantly, so a rejected model is not
+ * treated as a dead end: the provider is asked what it actually serves and
+ * the turn is retried once against that. Nothing is emitted to the caller
+ * until a model answers, so a retry never lands on top of half an answer.
+ */
+export async function streamFromProvider(
+  provider: Provider,
+  system: string,
+  messages: AiMessage[],
+  onText: (delta: string) => void,
+  options: {
+    maxTokens?: number;
+    signal?: AbortSignal;
+    json?: boolean;
+    userKeys?: UserKeys;
+  } = {},
+): Promise<string> {
+  const key = keyFor(provider, options.userKeys)!;
+  const configured = process.env[provider.envModel]?.trim() || provider.defaultModel;
+  const first = discovered.get(provider.id) ?? configured;
+
+  // Text goes to the caller as it arrives, so the answer still streams. The
+  // flag is what makes a retry safe: every failure worth retrying — a
+  // rejected model, an empty reply — happens before any text exists, so once
+  // a token has been emitted the turn is committed to this model.
+  let emitted = false;
+  const send = (delta: string) => {
+    emitted = true;
+    onText(delta);
+  };
+
+  try {
+    return await callProvider(provider, first, key, system, messages, send, options);
+  } catch (err) {
+    const status = (err as { status?: number })?.status;
+    const detail = String((err as { detail?: string })?.detail ?? (err as Error)?.message ?? "");
+    if (emitted || options.signal?.aborted) throw err;
+    if (!(err instanceof EmptyReplyError) && !isModelProblem(status, detail)) throw err;
+
+    const replacement = await discoverModel(provider, key, [first], options.signal);
+    if (!replacement) throw err;
+
+    console.warn(`[study-buddy] ${provider.id}: ${first} rejected, using ${replacement}`);
+    const text = await callProvider(
+      provider, replacement, key, system, messages, send, options,
+    );
+    // Only remembered once it has actually produced an answer.
+    discovered.set(provider.id, replacement);
+    return text;
+  }
+}
+
+/** The model this provider will be asked for next, for diagnostics. */
+export const currentModel = (provider: Provider): string =>
+  discovered.get(provider.id) ??
+  process.env[provider.envModel]?.trim() ??
+  provider.defaultModel;
