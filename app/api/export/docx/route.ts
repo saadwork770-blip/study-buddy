@@ -1,15 +1,17 @@
 import { markdownToDocx } from "@/lib/markdown-docx";
 import type { DocMeta } from "@/lib/doc-meta";
+import type { DocTheme } from "@/lib/doc-theme";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const { markdown, title, lang, meta, coverRows } = (await request.json()) as {
+  const { markdown, title, lang, meta, coverRows, theme } = (await request.json()) as {
     markdown: string;
     title?: string;
     lang?: string;
     meta?: DocMeta;
     coverRows?: { label: string; value: string }[];
+    theme?: DocTheme;
   };
 
   const safeTitle = (title || "study-buddy").slice(0, 120);
@@ -18,6 +20,7 @@ export async function POST(request: Request) {
     rtl: lang !== "en",
     meta,
     coverRows,
+    theme,
   });
 
   return new Response(new Uint8Array(buffer), {

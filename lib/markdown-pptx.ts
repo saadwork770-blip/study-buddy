@@ -1,5 +1,6 @@
 import PptxGenJS from "pptxgenjs";
 import type { DocMeta } from "./doc-meta";
+import { DEFAULT_THEME, type DocTheme, bare, fontById, tint } from "./doc-theme";
 
 interface Slide {
   title: string;
@@ -14,13 +15,12 @@ export interface PptxOptions {
   rtl: boolean;
   meta?: DocMeta;
   coverRows?: { label: string; value: string }[];
+  theme?: DocTheme;
 }
 
 const INK = "16233A";
-const ACCENT = "1F3864";
 const SOFT = "5B6A85";
 const RULE = "D5DBE6";
-const BAND = "F4F6FA";
 
 /** Strips inline markdown that has no meaning on a slide. */
 const clean = (text: string) =>
@@ -149,6 +149,9 @@ export async function markdownToPptx(
   options: PptxOptions,
 ): Promise<Buffer> {
   const { rtl } = options;
+  const theme = options.theme ?? DEFAULT_THEME;
+  const ACCENT = bare(theme.accent);
+  const BAND = tint(theme.accent, 0.93);
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_16x9";
   pptx.rtlMode = rtl;
@@ -156,7 +159,8 @@ export async function markdownToPptx(
   pptx.title = options.title;
   pptx.company = options.meta?.institution ?? "";
 
-  const font = rtl ? "Arial" : "Calibri";
+  const font = fontById(theme.bodyFont).word;
+  const headFont = fontById(theme.headingFont).word;
   const align = rtl ? ("right" as const) : ("left" as const);
   const W = 10;
   const M = 0.55;
@@ -168,7 +172,7 @@ export async function markdownToPptx(
   cover.addShape(pptx.ShapeType.rect, { x: 0, y: 5.21, w: W, h: 0.42, fill: { color: ACCENT } });
   cover.addText(options.title, {
     x: M, y: 1.55, w: W - M * 2, h: 1.5,
-    fontSize: 34, bold: true, color: INK, fontFace: font,
+    fontSize: 34, bold: true, color: INK, fontFace: headFont,
     align: "center", rtlMode: rtl, valign: "middle",
   });
 
@@ -204,7 +208,7 @@ export async function markdownToPptx(
       s.addShape(pptx.ShapeType.rect, { x: 0, y: 2.15, w: W, h: 1.3, fill: { color: BAND } });
       s.addText(slide.title, {
         x: M, y: 2.15, w: W - M * 2, h: 1.3,
-        fontSize: 28, bold: true, color: ACCENT, fontFace: font,
+        fontSize: 28, bold: true, color: ACCENT, fontFace: headFont,
         align: "center", valign: "middle", rtlMode: rtl,
       });
       if (slide.notes.length) s.addNotes(slide.notes.join("\n"));
@@ -214,7 +218,7 @@ export async function markdownToPptx(
     s.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.09, h: 5.63, fill: { color: ACCENT } });
     s.addText(slide.title, {
       x: M, y: 0.42, w: W - M * 2, h: 0.72,
-      fontSize: 22, bold: true, color: INK, fontFace: font, align, rtlMode: rtl, valign: "middle",
+      fontSize: 22, bold: true, color: INK, fontFace: headFont, align, rtlMode: rtl, valign: "middle",
     });
     s.addShape(pptx.ShapeType.rect, {
       x: rtl ? W - M - 1.3 : M, y: 1.16, w: 1.3, h: 0.035, fill: { color: ACCENT },
@@ -238,7 +242,7 @@ export async function markdownToPptx(
         {
           x: M, y, w: W - M * 2, h: slide.table ? 1.5 : 3.5,
           fontSize: size, color: INK, fontFace: font,
-          align, rtlMode: rtl, valign: "top", lineSpacingMultiple: 1.35,
+          align, rtlMode: rtl, valign: "top", lineSpacingMultiple: Math.min(theme.lineHeight, 1.5),
         },
       );
       y += slide.table ? 1.7 : 0;
@@ -247,7 +251,10 @@ export async function markdownToPptx(
     if (slide.table) {
       const head = slide.table.header.map((text) => ({
         text,
-        options: { bold: true, color: "FFFFFF", fill: { color: ACCENT }, fontSize: 12 },
+        options:
+          theme.tableStyle === "filled"
+            ? { bold: true, color: "FFFFFF", fill: { color: ACCENT }, fontSize: 12 }
+            : { bold: true, color: ACCENT, fill: { color: BAND }, fontSize: 12 },
       }));
       const bodyRows = slide.table.rows.slice(0, 8).map((row) =>
         slide.table!.header.map((_, i) => ({

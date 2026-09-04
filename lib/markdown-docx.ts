@@ -20,6 +20,7 @@ import {
   type IRunOptions,
 } from "docx";
 import type { DocMeta } from "./doc-meta";
+import { DEFAULT_THEME, type DocTheme, bare, fontById, tint } from "./doc-theme";
 
 const HEADINGS = [
   HeadingLevel.HEADING_1,
@@ -31,9 +32,7 @@ const HEADINGS = [
 ];
 
 const INK = "1A1A1A";
-const ACCENT = "1F3864";
 const RULE = "C8CEDA";
-const HEAD_FILL = "EEF1F6";
 
 export interface DocxOptions {
   title: string;
@@ -41,6 +40,7 @@ export interface DocxOptions {
   meta?: DocMeta;
   /** Pre-rendered cover rows, label/value pairs. */
   coverRows?: { label: string; value: string }[];
+  theme?: DocTheme;
 }
 
 /** Splits inline markdown (**bold**, *italic*, `code`) into styled runs. */
@@ -90,9 +90,16 @@ export async function markdownToDocx(
   options: DocxOptions,
 ): Promise<Buffer> {
   const { rtl, meta } = options;
+  const theme = options.theme ?? DEFAULT_THEME;
+  const ACCENT = bare(theme.accent);
+  const HEAD_FILL = theme.tableStyle === "filled" ? tint(theme.accent, 0.88) : "FFFFFF";
   const align = rtl ? AlignmentType.RIGHT : AlignmentType.LEFT;
-  const justify = rtl ? AlignmentType.JUSTIFIED : AlignmentType.JUSTIFIED;
-  const font = rtl ? "Arial" : "Calibri";
+  const justify = theme.justify ? AlignmentType.JUSTIFIED : align;
+  const font = fontById(theme.bodyFont).word;
+  const headingFont = fontById(theme.headingFont).word;
+  // Word sizes are half-points; the theme carries points.
+  const bodyHalfPt = Math.round(theme.fontSize * 2);
+  const lineTwips = Math.round(theme.lineHeight * 240);
   const body: (Paragraph | Table)[] = [];
 
   const paragraph = (
@@ -104,7 +111,7 @@ export async function markdownToDocx(
       children: runs(text, rtl, style),
       bidirectional: rtl,
       alignment: align,
-      spacing: { after: 140, line: 340 },
+      spacing: { after: 140, line: lineTwips },
       ...extra,
     });
 
@@ -114,7 +121,7 @@ export async function markdownToDocx(
       new Paragraph({ text: "", spacing: { after: 1400 } }),
       new Paragraph({
         children: [
-          new TextRun({ text: options.title, bold: true, size: 44, color: ACCENT, rightToLeft: rtl }),
+          new TextRun({ text: options.title, bold: true, size: 44, color: ACCENT, font: headingFont, rightToLeft: rtl }),
         ],
         alignment: AlignmentType.CENTER,
         bidirectional: rtl,
@@ -149,8 +156,14 @@ export async function markdownToDocx(
     body.push(
       new Paragraph({
         children: [
-          new TextRun({ text: options.coverRows ? "" : "", rightToLeft: rtl }),
-          new TextRun({ text: rtl ? "المحتويات" : "Contents", bold: true, size: 32, color: ACCENT, rightToLeft: rtl }),
+          new TextRun({
+            text: rtl ? "المحتويات" : "Contents",
+            bold: true,
+            size: 32,
+            color: ACCENT,
+            font: headingFont,
+            rightToLeft: rtl,
+          }),
         ],
         bidirectional: rtl,
         alignment: align,
@@ -250,6 +263,7 @@ export async function markdownToDocx(
         new Paragraph({
           children: runs(heading[2], rtl, {
             bold: true,
+            font: headingFont,
             size: level === 1 ? 32 : level === 2 ? 27 : 24,
             color: level <= 2 ? ACCENT : INK,
           }),
@@ -257,7 +271,7 @@ export async function markdownToDocx(
           bidirectional: rtl,
           alignment: align,
           spacing: { before: level <= 2 ? 320 : 240, after: 130 },
-          ...(level === 1
+          ...(level === 1 && theme.headingRule
             ? { border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: RULE, space: 4 } } }
             : {}),
         }),
@@ -280,7 +294,7 @@ export async function markdownToDocx(
             border: rtl
               ? { right: { style: BorderStyle.SINGLE, size: 12, color: ACCENT, space: 10 } }
               : { left: { style: BorderStyle.SINGLE, size: 12, color: ACCENT, space: 10 } },
-            spacing: { before: 120, after: 180, line: 320 },
+            spacing: { before: 120, after: 180, line: lineTwips },
           },
           { italics: true, color: "3C4761" },
         ),
@@ -291,7 +305,7 @@ export async function markdownToDocx(
     const bullet = /^[-*+]\s+(.*)$/.exec(trimmed);
     if (bullet) {
       const depth = Math.min(Math.floor((line.length - line.trimStart().length) / 2), 3);
-      body.push(paragraph(bullet[1], { bullet: { level: depth }, spacing: { after: 90, line: 320 } }));
+      body.push(paragraph(bullet[1], { bullet: { level: depth }, spacing: { after: 90, line: lineTwips } }));
       continue;
     }
 
@@ -300,7 +314,7 @@ export async function markdownToDocx(
       body.push(
         paragraph(numbered[2], {
           numbering: { reference: "ordered", level: 0 },
-          spacing: { after: 90, line: 320 },
+          spacing: { after: 90, line: lineTwips },
         }),
       );
       continue;
@@ -332,7 +346,10 @@ export async function markdownToDocx(
     },
     styles: {
       default: {
-        document: { run: { font, size: 24, color: INK }, paragraph: { spacing: { line: 340 } } },
+        document: {
+          run: { font, size: bodyHalfPt, color: INK },
+          paragraph: { spacing: { line: lineTwips } },
+        },
       },
     },
     sections: [

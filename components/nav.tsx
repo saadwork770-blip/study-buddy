@@ -13,6 +13,7 @@ const LINKS: { href: string; key: TKey; icon: string }[] = [
   { href: "/research", key: "nav.research", icon: "🔎" },
   { href: "/summarize", key: "nav.summarize", icon: "📄" },
   { href: "/produce", key: "nav.produce", icon: "✍️" },
+  { href: "/editor", key: "nav.editor", icon: "🖋" },
   { href: "/chat", key: "nav.chat", icon: "💬" },
   { href: "/library", key: "nav.library", icon: "📚" },
 ];

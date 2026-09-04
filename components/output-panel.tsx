@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Markdown } from "./markdown";
 import { useLang } from "./lang-provider";
 import { ExportDialog } from "./export-dialog";
+import { useRouter } from "next/navigation";
 import { wordCount } from "@/lib/markdown";
 import { useLibrary } from "@/lib/store";
 import type { LibraryKind, Source } from "@/lib/types";
@@ -34,6 +35,7 @@ export function OutputPanel({
   const { t, lang } = useLang();
   const { saveItem } = useLibrary();
   const [exporting, setExporting] = useState(false);
+  const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -102,6 +104,26 @@ export function OutputPanel({
           }}
         >
           {saved ? `✓ ${t("out.saved")}` : t("out.save")}
+        </button>
+
+        <button
+          type="button"
+          className="button button-ghost button-sm"
+          disabled={!markdown || streaming}
+          onClick={() => {
+            // Hand the draft to the editor, which picks it up on load.
+            try {
+              window.localStorage.setItem(
+                "sb.draft",
+                JSON.stringify({ title, markdown }),
+              );
+            } catch {
+              /* storage disabled */
+            }
+            router.push("/editor");
+          }}
+        >
+          ✎ {t("ed.open")}
         </button>
 
         <button

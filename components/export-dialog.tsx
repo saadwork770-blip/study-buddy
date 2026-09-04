@@ -6,6 +6,7 @@ import { coverRows, useDocMeta } from "@/lib/doc-meta";
 import { type ExportFormat, exportPayload } from "@/lib/export";
 import type { Source } from "@/lib/types";
 import type { Lang, TKey } from "@/lib/i18n";
+import type { DocTheme } from "@/lib/doc-theme";
 
 const FORMATS: { format: ExportFormat; label: string; icon: string; note: TKey }[] = [
   { format: "docx", label: "Word", icon: "📝", note: "export.note.docx" },
@@ -22,6 +23,8 @@ interface Props {
   sources?: Source[];
   createdAt?: string;
   lang?: Lang;
+  /** The design chosen in the editor, honoured by every format. */
+  theme?: DocTheme;
   onClose: () => void;
 }
 
@@ -29,7 +32,7 @@ interface Props {
  * Asks about the cover page before exporting, and remembers the student's
  * details so the fields are already filled the next time.
  */
-export function ExportDialog({ title, markdown, sources, createdAt, lang, onClose }: Props) {
+export function ExportDialog({ title, markdown, sources, createdAt, lang, theme, onClose }: Props) {
   const { t, lang: uiLang } = useLang();
   const docLang = lang ?? uiLang;
   const { meta, update, ready } = useDocMeta();
@@ -60,6 +63,7 @@ export function ExportDialog({ title, markdown, sources, createdAt, lang, onClos
         sources,
         createdAt,
         meta,
+        theme,
         coverRows: meta.cover ? coverRows(meta, docLang) : undefined,
       });
       if (format !== "pdf") onClose();

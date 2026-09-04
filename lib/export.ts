@@ -3,6 +3,7 @@
 import { markdownToText, renderMarkdown } from "./markdown";
 import type { Lang } from "./i18n";
 import type { DocMeta } from "./doc-meta";
+import { DEFAULT_THEME, type DocTheme, fontById, fontsHref } from "./doc-theme";
 import type { Source, Task } from "./types";
 
 export type ExportFormat = "md" | "txt" | "html" | "docx" | "pptx" | "pdf" | "json";
@@ -15,6 +16,7 @@ export interface ExportPayload {
   createdAt?: string;
   meta?: DocMeta;
   coverRows?: { label: string; value: string }[];
+  theme?: DocTheme;
 }
 
 /** Filesystem-safe filename that keeps Arabic characters intact. */
@@ -78,6 +80,9 @@ function tocOf(markdown: string): { level: number; text: string; id: string }[] 
 export function buildHtmlDocument(payload: ExportPayload): string {
   const rtl = payload.lang === "ar";
   const dir = rtl ? "rtl" : "ltr";
+  const theme = payload.theme ?? DEFAULT_THEME;
+  const href = fontsHref(theme);
+  const fontsLink = href ? `<link href="${href}" rel="stylesheet" />` : "";
   const source = withoutRedundantTitle(withSources(payload), payload.title);
   const toc = payload.meta?.toc ? tocOf(source) : [];
 
@@ -132,25 +137,32 @@ export function buildHtmlDocument(payload: ExportPayload): string {
 <title>${escapedTitle}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet" />
+${fontsLink}
 <style>
   :root{
     --ink:#1a1a1a; --soft:#4a5568; --faint:#7b8494;
-    --accent:#1f3864; --rule:#d5dbe6; --band:#f4f6fa;
-    --body:${rtl ? '"IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif' : '"Source Serif 4",Georgia,"Times New Roman",serif'};
-    --display:${rtl ? '"Amiri","IBM Plex Sans Arabic",serif' : '"Source Serif 4",Georgia,serif'};
+    --accent:${theme.accent}; --rule:#d5dbe6; --band:#f5f6f9;
+    --body:${fontById(theme.bodyFont).css};
+    --display:${fontById(theme.headingFont).css};
     color-scheme:light;
   }
   *{box-sizing:border-box}
   body{
-    font-family:var(--body); font-size:12pt; line-height:1.95; color:var(--ink);
+    font-family:var(--body); font-size:${theme.fontSize}pt; line-height:${theme.lineHeight}; color:var(--ink);
     background:#fff; margin:0 auto; padding:38px 30px 60px; max-width:190mm;
     -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
   }
 
   /* cover */
   .cover{min-height:88vh; display:flex; align-items:center; justify-content:center; text-align:center;
-    border-top:6px solid var(--accent); border-bottom:6px solid var(--accent); padding:40px 20px; margin-bottom:34px;}
+    padding:40px 20px; margin-bottom:34px;
+    ${
+      theme.coverStyle === "centered"
+        ? "border-top:6px solid var(--accent); border-bottom:6px solid var(--accent);"
+        : theme.coverStyle === "band"
+          ? "background:var(--band); border-radius:8px;"
+          : "border:1px solid var(--rule);"
+    }}
   .cover-inner{width:100%}
   .cover-title{font-family:var(--display); font-size:27pt; line-height:1.5; margin:0 0 18px; color:var(--accent); text-wrap:balance;}
   .cover-rule{width:90px; height:3px; background:var(--accent); margin:0 auto 26px;}
@@ -176,13 +188,13 @@ export function buildHtmlDocument(payload: ExportPayload): string {
 
   /* headings */
   h1,h2,h3,h4{font-family:var(--display); color:var(--accent); text-wrap:balance; line-height:1.45;}
-  h1{font-size:18pt; margin:30px 0 12px; padding-bottom:7px; border-bottom:2px solid var(--rule);}
-  h2{font-size:15pt; margin:26px 0 10px; padding-bottom:5px; border-bottom:1px solid var(--rule);}
+  h1{font-size:18pt; margin:30px 0 12px; ${theme.headingRule ? "padding-bottom:7px; border-bottom:2px solid var(--rule);" : ""}}
+  h2{font-size:15pt; margin:26px 0 10px; ${theme.headingRule ? "padding-bottom:5px; border-bottom:1px solid var(--rule);" : ""}}
   h3{font-size:12.5pt; margin:20px 0 7px; color:var(--ink);}
   h4,h5,h6{font-size:11.5pt; margin:16px 0 6px; color:var(--soft);}
 
   /* prose */
-  p{margin:0 0 11px; text-align:justify; hyphens:auto;}
+  p{margin:0 0 11px; text-align:${theme.justify ? "justify" : "start"}; hyphens:auto;}
   ul,ol{margin:0 0 13px; padding-inline-start:26px;}
   li{margin-bottom:6px;}
   li::marker{color:var(--accent);}
@@ -202,8 +214,8 @@ export function buildHtmlDocument(payload: ExportPayload): string {
   table{border-collapse:collapse; width:100%; font-size:10.5pt;}
   caption{caption-side:top; text-align:start; font-size:10pt; color:var(--faint); padding-bottom:6px;}
   th,td{border:1px solid var(--rule); padding:8px 11px; text-align:start; vertical-align:top;}
-  th{background:var(--accent); color:#fff; font-weight:600;}
-  tbody tr:nth-child(even){background:#fafbfd;}
+  th{${theme.tableStyle === "filled" ? "background:var(--accent); color:#fff;" : "background:var(--band); color:var(--accent); border-bottom:2px solid var(--accent);"} font-weight:600;}
+  ${theme.tableStyle === "filled" ? "tbody tr:nth-child(even){background:#fafbfd;}" : ""}
 
   .sources{margin-top:30px; padding-top:14px; border-top:1px solid var(--rule);}
   footer.doc{margin-top:38px; padding-top:12px; border-top:1px solid var(--rule);
@@ -291,6 +303,7 @@ export async function exportPptx(payload: ExportPayload) {
       lang: payload.lang,
       meta: payload.meta,
       coverRows: payload.coverRows,
+      theme: payload.theme,
     }),
   });
   if (!response.ok) throw new Error("pptx export failed");
@@ -307,6 +320,7 @@ export async function exportDocx(payload: ExportPayload) {
       lang: payload.lang,
       meta: payload.meta,
       coverRows: payload.coverRows,
+      theme: payload.theme,
     }),
   });
   if (!response.ok) throw new Error("docx export failed");

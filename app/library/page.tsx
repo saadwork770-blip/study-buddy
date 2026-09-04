@@ -124,6 +124,12 @@ export default function LibraryPage() {
                   >
                     {t("library.open")}
                   </button>
+                  <a
+                    className="button button-ghost button-sm"
+                    href={`/editor?id=${encodeURIComponent(item.id)}`}
+                  >
+                    ✎ {t("ed.open")}
+                  </a>
                   <button
                     type="button"
                     className="button button-ghost button-sm"
