@@ -205,9 +205,9 @@ const dict = {
 
     "attach.title": "المرفقات",
     "attach.add": "أرفق ملفاً",
-    "attach.hint": "PDF أو Word أو صورة أو نص — بلا حدّ للحجم، يُرفع مباشرةً إلى Google",
+    "attach.hint": "PDF أو Word أو PowerPoint أو Excel أو صورة أو نص — بلا حدّ للحجم",
     "attach.uploading": "جارٍ رفع {name}…",
-    "error.fileDoc": "صيغة ‎.doc القديمة غير مدعومة. افتح الملف في Word واحفظه بصيغة ‎.docx.",
+    "error.fileOld": "الصيغ القديمة (‎.doc و‎.ppt و‎.xls) غير مدعومة. افتح الملف واحفظه بصيغة ‎.docx أو ‎.pptx أو ‎.xlsx.",
     "error.fileEmpty": "لم أجد نصاً في هذا الملف.",
 
     "nav.produce": "إنجاز التكاليف",
@@ -440,9 +440,9 @@ const dict = {
 
     "attach.title": "Attachments",
     "attach.add": "Attach a file",
-    "attach.hint": "PDF, Word, image or text — no size limit, uploaded straight to Google",
+    "attach.hint": "PDF, Word, PowerPoint, Excel, images or text — no size limit",
     "attach.uploading": "Uploading {name}…",
-    "error.fileDoc": "The old .doc format isn't supported. Open it in Word and save as .docx.",
+    "error.fileOld": "The old .doc / .ppt / .xls formats aren't supported. Open the file and save it as .docx, .pptx or .xlsx.",
     "error.fileEmpty": "I couldn't find any text in that file.",
 
     "nav.produce": "Produce",

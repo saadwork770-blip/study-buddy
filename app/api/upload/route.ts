@@ -3,6 +3,30 @@ import { MissingKeyError, errorKey } from "@/lib/ai";
 export const runtime = "nodejs";
 
 /**
+ * Reports whether an uploaded file has finished processing. A file referenced
+ * while still PROCESSING is rejected by generateContent, so the browser waits
+ * on this before using it.
+ */
+export async function GET(request: Request) {
+  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!key) return Response.json({ error: "error.noKey" }, { status: 500 });
+
+  const name = new URL(request.url).searchParams.get("name");
+  if (!name?.startsWith("files/")) {
+    return Response.json({ error: "error.generic" }, { status: 400 });
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/${name}`,
+    { headers: { "x-goog-api-key": key } },
+  );
+  if (!response.ok) return Response.json({ state: "FAILED" });
+
+  const file = (await response.json()) as { state?: string };
+  return Response.json({ state: file.state ?? "ACTIVE" });
+}
+
+/**
  * Mints a resumable-upload session against the Gemini Files API and hands the
  * session URL to the browser, which then sends the bytes straight to Google.
  *

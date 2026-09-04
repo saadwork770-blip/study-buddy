@@ -28,12 +28,16 @@ export function FileAttach({ value, onChange, compact }: Props) {
   const take = async (files: FileList | null) => {
     if (!files?.length) return;
     setError(null);
+    // Accumulate locally: `value` is captured from this render, so reading it
+    // inside the loop would make each file overwrite the previous one.
+    let next = value;
     for (const file of Array.from(files)) {
       setBusy(file.name);
       setProgress(0);
       try {
         const attachment = await uploadAttachment(file, setProgress);
-        onChange([...value, attachment]);
+        next = [...next, attachment];
+        onChange(next);
       } catch (err) {
         setError((err as Error)?.message || "error.generic");
       } finally {
