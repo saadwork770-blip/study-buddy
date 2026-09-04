@@ -3,10 +3,17 @@ import { GoogleGenAI } from "@google/genai";
 import type { AiMessage, Source, StreamEvent } from "./types";
 
 export const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-export const EFFORT = (process.env.AI_EFFORT || "high") as "low" | "medium" | "high";
+export const EFFORT = (process.env.AI_EFFORT || "high") as
+  | "low"
+  | "medium"
+  | "high";
 
 /** Effort maps onto Gemini's thinking budget: 0 disables, -1 lets it decide. */
-const THINKING_BUDGET: Record<string, number> = { low: 0, medium: 4096, high: -1 };
+const THINKING_BUDGET: Record<string, number> = {
+  low: 0,
+  medium: 4096,
+  high: -1,
+};
 
 export class MissingKeyError extends Error {
   constructor() {
@@ -32,11 +39,52 @@ export function errorKey(err: unknown): string {
   const message = String((err as { message?: string })?.message ?? "");
   if (status === 401 || status === 403) return "error.noKey";
   if (status === 429 || /quota|rate limit/i.test(message)) return "error.rate";
+  if (
+    status === 503 ||
+    status === 500 ||
+    /overloaded|high demand|UNAVAILABLE/i.test(message)
+  )
+    return "error.busy";
   if (/API key not valid|API_KEY_INVALID/i.test(message)) return "error.noKey";
   return "error.generic";
 }
 
 type Emit = (event: StreamEvent) => void;
+
+const TRANSIENT = new Set([429, 500, 502, 503, 504]);
+
+function isTransient(err: unknown): boolean {
+  const status = (err as { status?: number })?.status;
+  if (status && TRANSIENT.has(status)) return true;
+  return /overloaded|high demand|UNAVAILABLE|ECONNRESET|fetch failed/i.test(
+    String((err as { message?: string })?.message ?? ""),
+  );
+}
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Gemini's free tier returns 503 under load often enough that one attempt is
+ * not enough. Retries only while nothing has been sent to the browser yet, so
+ * a half-written answer is never restarted on top of itself.
+ */
+async function withRetry<T>(
+  attempt: () => Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  let lastError: unknown;
+  for (let tries = 0; tries < 3; tries++) {
+    if (signal?.aborted) throw new Error("aborted");
+    try {
+      return await attempt();
+    } catch (err) {
+      lastError = err;
+      if (!isTransient(err)) throw err;
+      await wait(600 * 2 ** tries);
+    }
+  }
+  throw lastError;
+}
 
 /**
  * Wraps a unit of work in an NDJSON response: one JSON object per line, so the
@@ -93,16 +141,20 @@ export async function streamTurn(
 ): Promise<{ text: string; sources: Source[] }> {
   const ai = getClient();
 
-  const stream = await ai.models.generateContentStream({
-    model: MODEL,
-    contents: opts.messages,
-    config: {
-      systemInstruction: opts.system,
-      maxOutputTokens: opts.maxTokens ?? 8192,
-      thinkingConfig: { thinkingBudget: THINKING_BUDGET[EFFORT] ?? -1 },
-      ...(opts.search ? { tools: [{ googleSearch: {} }] } : {}),
-    },
-  });
+  const stream = await withRetry(
+    () =>
+      ai.models.generateContentStream({
+        model: MODEL,
+        contents: opts.messages,
+        config: {
+          systemInstruction: opts.system,
+          maxOutputTokens: opts.maxTokens ?? 8192,
+          thinkingConfig: { thinkingBudget: THINKING_BUDGET[EFFORT] ?? -1 },
+          ...(opts.search ? { tools: [{ googleSearch: {} }] } : {}),
+        },
+      }),
+    opts.signal,
+  );
 
   const sources = new Map<string, Source>();
   let text = "";
@@ -135,6 +187,11 @@ export async function streamTurn(
     }
   }
 
+  // An empty answer with no thrown error would otherwise look like success.
+  if (!text.trim() && !opts.signal?.aborted) {
+    throw Object.assign(new Error("empty completion"), { key: "error.busy" });
+  }
+
   return { text, sources: [...sources.values()] };
 }
 
@@ -145,17 +202,19 @@ export async function generateJson<T>(
   schema: Record<string, unknown>,
 ): Promise<T | null> {
   const ai = getClient();
-  const response = await ai.models.generateContent({
-    model: MODEL,
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    config: {
-      systemInstruction: system,
-      responseMimeType: "application/json",
-      responseSchema: schema,
-      maxOutputTokens: 8192,
-      thinkingConfig: { thinkingBudget: THINKING_BUDGET[EFFORT] ?? -1 },
-    },
-  });
+  const response = await withRetry(() =>
+    ai.models.generateContent({
+      model: MODEL,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: {
+        systemInstruction: system,
+        responseMimeType: "application/json",
+        responseSchema: schema,
+        maxOutputTokens: 8192,
+        thinkingConfig: { thinkingBudget: THINKING_BUDGET[EFFORT] ?? -1 },
+      },
+    }),
+  );
 
   const text = response.text;
   if (!text) return null;

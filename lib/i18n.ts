@@ -206,6 +206,7 @@ const dict = {
     "error.noKey":
       "لم يتم ضبط مفتاح GEMINI_API_KEY. احصل على مفتاح مجاني من aistudio.google.com/apikey وأضِفه إلى ‎.env.local.",
     "error.rate": "تم بلوغ حصّة الطبقة المجانية مؤقتاً. انتظر قليلاً ثم أعد المحاولة.",
+    "error.busy": "خوادم Gemini مزدحمة الآن. حاولتُ ثلاث مرات — أعد المحاولة بعد قليل.",
     "error.generic": "تعذّر إكمال الطلب. حاول مرة أخرى.",
     "error.fileTooBig": "حجم الملف كبير جداً (الحد {n} ميغابايت).",
     "error.fileType": "نوع الملف غير مدعوم.",
@@ -410,6 +411,7 @@ const dict = {
     "error.noKey":
       "GEMINI_API_KEY is not set. Get a free key at aistudio.google.com/apikey and add it to .env.local.",
     "error.rate": "Free-tier quota reached for now. Wait a moment and try again.",
+    "error.busy": "Gemini is busy right now. I retried three times — please try again shortly.",
     "error.generic": "The request could not be completed. Please try again.",
     "error.fileTooBig": "That file is too large ({n} MB max).",
     "error.fileType": "That file type is not supported.",
