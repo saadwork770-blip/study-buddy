@@ -4,25 +4,17 @@ import { useMemo, useRef, useState } from "react";
 import { useLang } from "@/components/lang-provider";
 import { Markdown } from "@/components/markdown";
 import { type Backup, applyBackup, readBackup, useLibrary } from "@/lib/store";
-import { type ExportFormat, download, exportPayload, safeFilename } from "@/lib/export";
+import { download, safeFilename } from "@/lib/export";
+import { ExportDialog } from "@/components/export-dialog";
 import type { LibraryItem } from "@/lib/types";
 import type { TKey } from "@/lib/i18n";
-
-const FORMATS: { format: ExportFormat; label: string }[] = [
-  { format: "docx", label: "Word" },
-  { format: "pptx", label: "PPT" },
-  { format: "pdf", label: "PDF" },
-  { format: "md", label: "MD" },
-  { format: "html", label: "HTML" },
-  { format: "txt", label: "TXT" },
-  { format: "json", label: "JSON" },
-];
 
 export default function LibraryPage() {
   const { t, lang } = useLang();
   const { items, removeItem, ready } = useLibrary();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState<LibraryItem | null>(null);
+  const [exporting, setExporting] = useState<LibraryItem | null>(null);
   const [notice, setNotice] = useState<TKey | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -132,24 +124,13 @@ export default function LibraryPage() {
                   >
                     {t("library.open")}
                   </button>
-                  {FORMATS.map((format) => (
-                    <button
-                      key={format.format}
-                      type="button"
-                      className="button button-ghost button-sm"
-                      onClick={() =>
-                        void exportPayload(format.format, {
-                          title: item.title,
-                          markdown: item.content,
-                          lang: item.lang,
-                          sources: item.sources,
-                          createdAt: item.createdAt,
-                        })
-                      }
-                    >
-                      {format.label}
-                    </button>
-                  ))}
+                  <button
+                    type="button"
+                    className="button button-ghost button-sm"
+                    onClick={() => setExporting(item)}
+                  >
+                    ⤓ {t("out.export")}
+                  </button>
                   <span className="spacer" />
                   <button
                     type="button"
@@ -163,6 +144,17 @@ export default function LibraryPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {exporting && (
+        <ExportDialog
+          title={exporting.title}
+          markdown={exporting.content}
+          sources={exporting.sources}
+          createdAt={exporting.createdAt}
+          lang={exporting.lang}
+          onClose={() => setExporting(null)}
+        />
       )}
 
       {active && (

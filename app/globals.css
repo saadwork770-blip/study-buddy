@@ -620,3 +620,25 @@ select { cursor: pointer; }
 .attach-chip button:hover { background: var(--danger-soft); color: var(--danger); }
 
 .attach-progress { margin-top: 9px; }
+
+/* ---------- export dialog ---------- */
+
+.format-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  cursor: pointer;
+  text-align: start;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.format-card:hover:not(:disabled) {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.format-card:disabled { opacity: 0.55; cursor: not-allowed; }
+.format-card strong { font-size: 0.92rem; }
