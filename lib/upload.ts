@@ -3,6 +3,7 @@
 import JSZip from "jszip";
 import mammoth from "mammoth/mammoth.browser";
 import type { Attachment } from "./types";
+import { keysForRequest } from "./user-keys";
 
 /**
  * The only types worth sending to the Files API. Everything else is read as
@@ -50,7 +51,12 @@ async function toGoogle(file: File, onProgress?: (pct: number) => void): Promise
   const session = await fetch("/api/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: file.name, mimeType, size: file.size }),
+    body: JSON.stringify({
+      name: file.name,
+      mimeType,
+      size: file.size,
+      keys: keysForRequest(),
+    }),
   });
   const body = (await session.json().catch(() => ({}))) as {
     uploadUrl?: string;
@@ -116,7 +122,11 @@ async function waitForActive(name: string) {
   for (let attempt = 0; attempt < 20; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, 1500));
     try {
-      const response = await fetch(`/api/upload?name=${encodeURIComponent(name)}`);
+      const response = await fetch("/api/upload/state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, keys: keysForRequest() }),
+      });
       const { state } = (await response.json()) as { state?: string };
       if (state === "ACTIVE") return;
       if (state === "FAILED") throw new Error("error.fileType");

@@ -13,6 +13,7 @@ interface Body {
   text?: string;
   expert?: ExpertId;
   attachments?: Attachment[];
+  keys?: Record<string, string>;
 }
 
 export async function POST(request: Request) {
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
       maxTokens: 8192,
       statusLabels: { thinking: "out.thinking" },
       signal: request.signal,
+      keys: body.keys,
     });
   });
 }

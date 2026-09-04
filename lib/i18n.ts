@@ -204,6 +204,8 @@ const dict = {
     "health.fail": "الاتصال غير مكتمل",
     "health.detail": "التفاصيل",
     "health.diagnose": "شغّل الفحص ←",
+    "health.backups": "مزوّدون احتياطيون: {list}",
+    "health.settings": "أضِف مفتاحاً في الإعدادات ←",
 
     "attach.title": "المرفقات",
     "attach.add": "أرفق ملفاً",
@@ -322,9 +324,23 @@ const dict = {
     "design.margin.normal": "عادية",
     "design.margin.wide": "واسعة",
 
+    "nav.settings": "الإعدادات",
+    "settings.title": "مفاتيح الذكاء الاصطناعي",
+    "settings.subtitle": "أضِف مفاتيحك هنا مباشرةً — بلا Vercel وبلا إعادة نشر. تُحفظ في متصفحك وتُرسل مع كل طلب فقط.",
+    "settings.get": "احصل على مفتاح",
+    "settings.show": "إظهار",
+    "settings.saved": "حُفظ",
+    "settings.verify": "تحقّق من عمل المفاتيح",
+    "settings.verifying": "جارٍ التحقّق…",
+    "settings.works": "يعمل",
+    "settings.upload": "فحص رفع الملفات",
+    "settings.privacy": "تُخزَّن المفاتيح في هذا المتصفح وحده، ولا تُحفظ على الخادم. امسحها بالزر ✕ في أي وقت. إن كان الموقع منشوراً بمفتاح في Vercel فهو الأسبق، وما تضيفه هنا يُستخدم كاحتياطي.",
+
     "error.noKey":
-      "لم يتم ضبط مفتاح GEMINI_API_KEY أو أنه مرفوض. أضِفه في Vercel ضمن Settings ← Environment Variables ثم أعد النشر (أو في ‎.env.local محلياً).",
-    "error.rate": "انتهت حصّتك اليومية المجانية من Gemini لهذا النموذج. جرّبتُ نماذج بديلة وكلّها مستهلكة. الحلّ: أضِف مفتاح مزوّد احتياطي مجاني (Groq مثلاً) في إعدادات Vercel، أو انتظر إعادة ضبط الحصّة.",
+      "لا يوجد مفتاح صالح. أسرع حلّ: افتح صفحة «الإعدادات» في هذا الموقع والصق مفتاح Gemini مجاني من aistudio.google.com/apikey — بلا نشر ولا انتظار. (أو اضبط GEMINI_API_KEY في Vercel إن كنت تفضّل ذلك.)",
+    "error.noKeyPartial":
+      "لا يوجد مفتاح Gemini، لكن لديك مزوّداً احتياطياً. المحادثة والتلخيص وكتابة الوثائق تعمل؛ أمّا رفع الملفات والبحث في الويب فيحتاجان مفتاح Gemini من صفحة «الإعدادات».",
+    "error.rate": "انتهت حصّتك اليومية المجانية من Gemini لهذا النموذج. جرّبتُ النماذج البديلة وكلّها مستهلكة. الحلّ: افتح صفحة «الإعدادات» والصق مفتاح Groq مجاني من console.groq.com/keys — يستغرق دقيقة، أو انتظر إعادة ضبط الحصّة.",
     "error.busy": "خوادم Gemini مزدحمة الآن. حاولتُ ثلاث مرات — أعد المحاولة بعد قليل.",
     "error.generic": "تعذّر إكمال الطلب. حاول مرة أخرى.",
     "error.fileTooBig": "حجم الملف كبير جداً (الحد {n} ميغابايت).",
@@ -528,6 +544,8 @@ const dict = {
     "health.fail": "Not connected",
     "health.detail": "Details",
     "health.diagnose": "Run diagnostics →",
+    "health.backups": "Backup providers: {list}",
+    "health.settings": "Add a key in Settings →",
 
     "attach.title": "Attachments",
     "attach.add": "Attach a file",
@@ -646,9 +664,23 @@ const dict = {
     "design.margin.normal": "Normal",
     "design.margin.wide": "Wide",
 
+    "nav.settings": "Settings",
+    "settings.title": "AI keys",
+    "settings.subtitle": "Add your keys right here — no Vercel, no redeploy. They stay in your browser and travel only with your own requests.",
+    "settings.get": "Get a key",
+    "settings.show": "Show",
+    "settings.saved": "Saved",
+    "settings.verify": "Check the keys work",
+    "settings.verifying": "Checking…",
+    "settings.works": "Working",
+    "settings.upload": "Upload diagnostics",
+    "settings.privacy": "Keys are kept in this browser only and are never stored on the server. Clear one any time with ✕. A key deployed with the site takes precedence; anything you add here is used as backup.",
+
     "error.noKey":
-      "GEMINI_API_KEY is missing or rejected. Add it in Vercel under Settings → Environment Variables and redeploy (or in .env.local when running locally).",
-    "error.rate": "Your daily free Gemini quota for this model is used up. I tried the sibling models and they are spent too. Fix: add a free backup provider key (Groq, for example) in your Vercel settings, or wait for the quota to reset.",
+      "No working key. Fastest fix: open this site's Settings page and paste a free Gemini key from aistudio.google.com/apikey — no deploy, no waiting. (Or set GEMINI_API_KEY in Vercel if you prefer.)",
+    "error.noKeyPartial":
+      "No Gemini key, but you do have a backup provider. Chat, summaries and document drafting work; file uploads and web search need a Gemini key from the Settings page.",
+    "error.rate": "Your daily free Gemini quota for this model is used up. I tried the sibling models and they are spent too. Fix: open the Settings page and paste a free Groq key from console.groq.com/keys — it takes a minute — or wait for the quota to reset.",
     "error.busy": "Gemini is busy right now. I retried three times — please try again shortly.",
     "error.generic": "The request could not be completed. Please try again.",
     "error.fileTooBig": "That file is too large ({n} MB max).",

@@ -1,7 +1,7 @@
 import "server-only";
 import { GoogleGenAI } from "@google/genai";
 import type { AiMessage, AiPart, Attachment, Source, StreamEvent } from "./types";
-import { fallbackChain, isTextOnly, streamFromProvider } from "./providers";
+import { type UserKeys, fallbackChain, isTextOnly, streamFromProvider } from "./providers";
 
 export const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
@@ -37,8 +37,10 @@ export class MissingKeyError extends Error {
   }
 }
 
-export function getClient(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+export function getClient(userKeys?: UserKeys): GoogleGenAI {
+  // A key deployed with the site wins; the student's own fills the gap.
+  const apiKey =
+    process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || userKeys?.gemini?.trim();
   // Checked here so the student sees a useful message instead of a raw 400.
   if (!apiKey) throw new MissingKeyError();
   // GEMINI_BASE_URL lets the endpoint be pointed at a proxy or a test double.
@@ -165,6 +167,8 @@ export interface StreamOptions {
   search?: boolean;
   statusLabels?: { thinking?: string; searching?: string };
   signal?: AbortSignal;
+  /** Keys the student entered in the site's settings page. */
+  keys?: UserKeys;
 }
 
 /**
@@ -175,7 +179,7 @@ export async function streamTurn(
   emit: Emit,
   opts: StreamOptions,
 ): Promise<{ text: string; sources: Source[] }> {
-  const ai = getClient();
+  const ai = getClient(opts.keys);
 
   const openStream = (model: string) =>
     withRetry(
@@ -214,7 +218,7 @@ export async function streamTurn(
     const err = lastError;
     // Primary is out of quota: hand the turn to a fallback provider, but only
     // when nothing about it depends on Gemini specifically.
-    const chain = fallbackChain();
+    const chain = fallbackChain(opts.keys);
     if (!isExhausted(err) || !chain.length || opts.search || !isTextOnly(opts.messages)) {
       throw err;
     }
@@ -226,7 +230,11 @@ export async function streamTurn(
           opts.system,
           opts.messages,
           (delta) => emit({ type: "text", text: delta }),
-          { maxTokens: Math.min(opts.maxTokens ?? 8192, 8192), signal: opts.signal },
+          {
+            maxTokens: Math.min(opts.maxTokens ?? 8192, 8192),
+            signal: opts.signal,
+            userKeys: opts.keys,
+          },
         );
         if (answer.trim()) return { text: answer, sources: [] };
       } catch (fallbackError) {
@@ -281,8 +289,9 @@ export async function generateJson<T>(
   prompt: string,
   schema: Record<string, unknown>,
   extraParts: AiPart[] = [],
+  keys?: UserKeys,
 ): Promise<T | null> {
-  const ai = getClient();
+  const ai = getClient(keys);
 
   const attempt = (model: string) =>
     withRetry(() =>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLang } from "./lang-provider";
+import { keysForRequest } from "@/lib/user-keys";
 import type { TKey } from "@/lib/i18n";
 
 interface Health {
@@ -9,11 +10,13 @@ interface Health {
   model?: string;
   reason?: string;
   detail?: string;
+  fallbacks?: string[];
 }
 
 /**
  * Runs once on the home page so a fresh deploy reports its own state instead
- * of looking fine until the student tries to use a feature.
+ * of looking fine until the student tries to use a feature. Sends whatever
+ * keys the student saved in Settings, so a browser-only key reads as working.
  */
 export function SetupCheck() {
   const { t } = useLang();
@@ -22,7 +25,11 @@ export function SetupCheck() {
 
   useEffect(() => {
     let live = true;
-    fetch("/api/health")
+    fetch("/api/health", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keys: keysForRequest() }),
+    })
       .then((r) => r.json())
       .then((data: Health) => live && setHealth(data))
       .catch(() => live && setFailed(true));
@@ -41,6 +48,12 @@ export function SetupCheck() {
     );
   }
 
+  const backups = health.fallbacks?.length ? (
+    <div className="hint" style={{ marginTop: 6 }}>
+      {t("health.backups", { list: health.fallbacks.join("، ") })}
+    </div>
+  ) : null;
+
   if (health.ok) {
     return (
       <div
@@ -49,6 +62,7 @@ export function SetupCheck() {
         role="status"
       >
         ✓ {t("health.ok", { model: health.model ?? "" })}
+        {backups}
       </div>
     );
   }
@@ -56,9 +70,13 @@ export function SetupCheck() {
   return (
     <div className="alert alert-error" role="alert">
       <strong>{t("health.fail")}</strong> — {t((health.reason ?? "error.generic") as TKey)}{" "}
+      <a href="/settings" style={{ textDecoration: "underline" }}>
+        {t("health.settings")}
+      </a>{" "}
       <a href="/check" style={{ textDecoration: "underline" }}>
         {t("health.diagnose")}
       </a>
+      {backups}
       {health.detail && (
         <details style={{ marginTop: 6 }}>
           <summary style={{ cursor: "pointer" }}>{t("health.detail")}</summary>

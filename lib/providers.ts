@@ -72,13 +72,20 @@ export const PROVIDERS: Provider[] = [
   },
 ];
 
-export const configuredProviders = (): Provider[] =>
-  PROVIDERS.filter((provider) => Boolean(process.env[provider.envKey]?.trim()));
+/** Keys the student pasted into the site, sent with the request. */
+export type UserKeys = Record<string, string>;
+
+/** A provider is usable if the server has a key for it, or the student does. */
+export const keyFor = (provider: Provider, userKeys?: UserKeys): string | undefined =>
+  userKeys?.[provider.id]?.trim() || process.env[provider.envKey]?.trim();
+
+export const configuredProviders = (userKeys?: UserKeys): Provider[] =>
+  PROVIDERS.filter((provider) => Boolean(keyFor(provider, userKeys)));
 
 /** Order to try fallbacks in; FALLBACK_ORDER overrides it. */
-export function fallbackChain(): Provider[] {
+export function fallbackChain(userKeys?: UserKeys): Provider[] {
   const order = process.env.FALLBACK_ORDER?.split(",").map((id) => id.trim());
-  const available = configuredProviders();
+  const available = configuredProviders(userKeys);
   if (!order?.length) return available;
   return order
     .map((id) => available.find((provider) => provider.id === id))
@@ -120,9 +127,14 @@ export async function streamFromProvider(
   system: string,
   messages: AiMessage[],
   onText: (delta: string) => void,
-  options: { maxTokens?: number; signal?: AbortSignal; json?: boolean } = {},
+  options: {
+    maxTokens?: number;
+    signal?: AbortSignal;
+    json?: boolean;
+    userKeys?: UserKeys;
+  } = {},
 ): Promise<string> {
-  const key = process.env[provider.envKey]!;
+  const key = keyFor(provider, options.userKeys)!;
   const model = process.env[provider.envModel]?.trim() || provider.defaultModel;
   // <ID>_BASE_URL redirects a provider at a proxy, a self-hosted gateway, or a
   // stub during testing.

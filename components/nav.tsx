@@ -16,6 +16,7 @@ const LINKS: { href: string; key: TKey; icon: string }[] = [
   { href: "/editor", key: "nav.editor", icon: "🖋" },
   { href: "/chat", key: "nav.chat", icon: "💬" },
   { href: "/library", key: "nav.library", icon: "📚" },
+  { href: "/settings", key: "nav.settings", icon: "⚙" },
 ];
 
 function ThemeToggle() {

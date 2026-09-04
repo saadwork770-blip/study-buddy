@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useLang } from "@/components/lang-provider";
+import { withKeys } from "@/lib/user-keys";
 import { Markdown } from "@/components/markdown";
 import { ExpertPicker } from "@/components/expert-picker";
 import { FileAttach } from "@/components/file-attach";
@@ -57,7 +58,7 @@ export default function ChatPage() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history, lang, mode, subject, expert, attachments: files }),
+        body: JSON.stringify(withKeys({ messages: history, lang, mode, subject, expert, attachments: files })),
         signal: abort.signal,
       });
 

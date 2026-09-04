@@ -5,6 +5,7 @@ import { useLang } from "./lang-provider";
 import { Markdown } from "./markdown";
 import { FileAttach } from "./file-attach";
 import { uid } from "@/lib/store";
+import { withKeys } from "@/lib/user-keys";
 import { type ExportFormat, exportPayload, taskToMarkdown } from "@/lib/export";
 import type { Attachment, Task, TaskPlan, TaskStatus } from "@/lib/types";
 import type { TKey } from "@/lib/i18n";
@@ -51,7 +52,7 @@ export function TaskCard({ task, onUpdate, onRemove }: Props) {
       const response = await fetch("/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task, lang, attachments: files }),
+        body: JSON.stringify(withKeys({ task, lang, attachments: files })),
       });
       const body = (await response.json()) as TaskPlan & { error?: string };
       if (!response.ok || body.error) throw new Error(body.error ?? "error.generic");

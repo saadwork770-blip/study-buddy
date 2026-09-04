@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLang } from "@/components/lang-provider";
 import { readNdjson } from "@/lib/stream";
+import { keysForRequest, withKeys } from "@/lib/user-keys";
 
 type State = "run" | "ok" | "fail";
 
@@ -47,7 +48,13 @@ export default function CheckPage() {
     // 1. key
     let health: { ok?: boolean; model?: string; reason?: string; detail?: string } = {};
     try {
-      health = await (await fetch("/api/health")).json();
+      health = await (
+        await fetch("/api/health", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ keys: keysForRequest() }),
+        })
+      ).json();
       if (health.ok) set("key", "ok", health.model);
       else set("key", "fail", `${health.reason ?? "?"} — ${health.detail ?? ""}`);
     } catch (err) {
@@ -77,7 +84,12 @@ export default function CheckPage() {
       const response = await fetch("/api/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "check.pdf", mimeType: "application/pdf", size: pdf.size }),
+        body: JSON.stringify({
+          name: "check.pdf",
+          mimeType: "application/pdf",
+          size: pdf.size,
+          keys: keysForRequest(),
+        }),
       });
       const body = (await response.json()) as { uploadUrl?: string; detail?: string; error?: string };
       if (response.ok && body.uploadUrl) {
@@ -137,13 +149,15 @@ export default function CheckPage() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lang,
-          messages: [{ role: "user", content: "Reply with the single word: OK" }],
-          attachments: [
-            { name: "check.pdf", mimeType: "application/pdf", size: pdf.size, fileUri },
-          ],
-        }),
+        body: JSON.stringify(
+          withKeys({
+            lang,
+            messages: [{ role: "user", content: "Reply with the single word: OK" }],
+            attachments: [
+              { name: "check.pdf", mimeType: "application/pdf", size: pdf.size, fileUri },
+            ],
+          }),
+        ),
       });
       await readNdjson(response, (event) => {
         if (event.type === "text") answer += event.text;

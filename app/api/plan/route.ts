@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     task: Task;
     lang: Lang;
     attachments?: Attachment[];
+    keys?: Record<string, string>;
   };
   const lang: Lang = body.lang === "en" ? "en" : "ar";
   const task = body.task;
@@ -72,6 +73,7 @@ export async function POST(request: Request) {
       prompt,
       PLAN_SCHEMA,
       attachmentParts(body.attachments),
+      body.keys,
     );
     if (!plan) return Response.json({ error: "error.generic" }, { status: 502 });
     return Response.json(plan);

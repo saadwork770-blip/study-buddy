@@ -15,6 +15,7 @@ interface Body {
   lang: Lang;
   expert?: ExpertId;
   attachments?: Attachment[];
+  keys?: Record<string, string>;
 }
 
 export async function POST(request: Request) {
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
       search: useWeb,
       statusLabels: { thinking: "out.thinking", searching: "research.searching" },
       signal: request.signal,
+      keys: body.keys,
     });
     if (sources.length) emit({ type: "sources", sources });
   });

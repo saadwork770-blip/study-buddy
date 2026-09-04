@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useLang } from "@/components/lang-provider";
+import { withKeys } from "@/lib/user-keys";
 import { OutputPanel } from "@/components/output-panel";
 import { ExpertPicker } from "@/components/expert-picker";
 import { FileAttach } from "@/components/file-attach";
@@ -38,7 +39,7 @@ export default function SummarizePage() {
     void stream.run("/api/summarize", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lang, style, text, expert, attachments: files }),
+      body: JSON.stringify(withKeys({ lang, style, text, expert, attachments: files })),
     });
   };
 
