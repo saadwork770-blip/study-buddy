@@ -61,41 +61,39 @@ async function toGoogle(file: File, onProgress?: (pct: number) => void): Promise
     throw detailed(body.error ?? "error.generic", body.detail ?? `session HTTP ${session.status}`);
   }
 
-  const uploaded = await new Promise<{
-    file?: { uri?: string; mimeType?: string; name?: string; state?: string };
-  }>(
-    (resolve, reject) => {
-      // XHR rather than fetch, because only XHR reports upload progress.
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", body.uploadUrl!);
-      xhr.setRequestHeader("X-Goog-Upload-Command", "upload, finalize");
-      xhr.setRequestHeader("X-Goog-Upload-Offset", "0");
-      xhr.setRequestHeader("Content-Type", mimeType);
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
-      };
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            resolve(JSON.parse(xhr.responseText));
-          } catch {
-            reject(detailed("error.generic", `bad JSON from Google: ${xhr.responseText.slice(0, 300)}`));
-          }
-        } else {
-          reject(
-            detailed(
-              xhr.status === 403 || xhr.status === 401 ? "error.noKey" : "error.upload",
-              `Google returned HTTP ${xhr.status}: ${xhr.responseText.slice(0, 300)}`,
-            ),
-          );
-        }
-      };
-      // A network-level failure here is usually CORS or connectivity.
-      xhr.onerror = () =>
-        reject(detailed("error.upload", "the browser could not reach Google (network or CORS)"));
-      xhr.send(file);
-    },
-  );
+  // Google's resumable protocol wants every chunk but the last to be a
+  // multiple of 256 KB; 3 MB also keeps each request under Vercel's ~4.5 MB cap.
+  const CHUNK = 3 * 1024 * 1024;
+  let uploaded: { file?: { uri?: string; mimeType?: string; name?: string; state?: string } } = {};
+
+  for (let offset = 0; offset < file.size; offset += CHUNK) {
+    const end = Math.min(offset + CHUNK, file.size);
+    const last = end >= file.size;
+
+    const response = await fetch("/api/upload/chunk", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "X-Upload-Url": body.uploadUrl,
+        "X-Upload-Offset": String(offset),
+        "X-Upload-Last": last ? "1" : "0",
+      },
+      body: file.slice(offset, end),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      detail?: string;
+      file?: { uri?: string; mimeType?: string; name?: string; state?: string };
+    };
+
+    if (!response.ok || payload.error) {
+      throw detailed(payload.error ?? "error.upload", payload.detail ?? `chunk HTTP ${response.status}`);
+    }
+
+    onProgress?.(Math.round((end / file.size) * 100));
+    if (last) uploaded = payload;
+  }
 
   const uri = uploaded.file?.uri;
   if (!uri) throw new Error("error.generic");

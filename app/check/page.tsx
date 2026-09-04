@@ -16,7 +16,7 @@ interface Step {
 const STEPS: { id: string; ar: string; en: string }[] = [
   { id: "key", ar: "المفتاح والاتصال بـ Gemini", en: "API key reaches Gemini" },
   { id: "session", ar: "إنشاء جلسة رفع", en: "Upload session is created" },
-  { id: "upload", ar: "الرفع من المتصفح إلى Google", en: "Browser uploads to Google" },
+  { id: "upload", ar: "رفع الملف عبر الخادم", en: "File uploads through the server" },
   { id: "read", ar: "قراءة الملف المرفوع", en: "Gemini reads the uploaded file" },
 ];
 
@@ -97,27 +97,32 @@ export default function CheckPage() {
       return;
     }
 
-    // 3. browser -> Google
+    // 3. through our own server, so no cross-origin request is involved
     let fileUri = "";
     try {
-      const response = await fetch(uploadUrl, {
+      const response = await fetch("/api/upload/chunk", {
         method: "POST",
-        headers: { "X-Goog-Upload-Command": "upload, finalize", "X-Goog-Upload-Offset": "0" },
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "X-Upload-Url": uploadUrl,
+          "X-Upload-Offset": "0",
+          "X-Upload-Last": "1",
+        },
         body: pdf,
       });
-      const text = await response.text();
-      if (!response.ok) {
-        set("upload", "fail", `HTTP ${response.status}: ${text.slice(0, 200)}`);
+      const payload = (await response.json().catch(() => ({}))) as {
+        file?: { uri?: string };
+        detail?: string;
+        error?: string;
+      };
+      fileUri = payload.file?.uri ?? "";
+      if (!response.ok || !fileUri) {
+        set("upload", "fail", payload.detail || payload.error || `HTTP ${response.status}`);
       } else {
-        fileUri = (JSON.parse(text) as { file?: { uri?: string } }).file?.uri ?? "";
-        set("upload", fileUri ? "ok" : "fail", fileUri ? undefined : text.slice(0, 200));
+        set("upload", "ok");
       }
     } catch (err) {
-      set(
-        "upload",
-        "fail",
-        `${String(err)} — ${isAr ? "غالباً CORS أو حجب الشبكة" : "likely CORS or a network block"}`,
-      );
+      set("upload", "fail", String(err));
     }
     if (!fileUri) {
       set("read", "fail", isAr ? "أُوقف" : "skipped");
