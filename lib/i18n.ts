@@ -202,11 +202,13 @@ const dict = {
     "health.ok": "متصل بـ {model} — كل الميزات جاهزة.",
     "health.fail": "الاتصال غير مكتمل",
     "health.detail": "التفاصيل",
+    "health.diagnose": "شغّل الفحص ←",
 
     "attach.title": "المرفقات",
     "attach.add": "أرفق ملفاً",
     "attach.hint": "PDF أو Word أو PowerPoint أو Excel أو صورة أو نص — بلا حدّ للحجم",
     "attach.uploading": "جارٍ رفع {name}…",
+    "error.upload": "تعذّر رفع الملف إلى Google. افتح «التفاصيل» لمعرفة السبب.",
     "error.fileOld": "الصيغ القديمة (‎.doc و‎.ppt و‎.xls) غير مدعومة. افتح الملف واحفظه بصيغة ‎.docx أو ‎.pptx أو ‎.xlsx.",
     "error.fileEmpty": "لم أجد نصاً في هذا الملف.",
 
@@ -437,11 +439,13 @@ const dict = {
     "health.ok": "Connected to {model} — every feature is ready.",
     "health.fail": "Not connected",
     "health.detail": "Details",
+    "health.diagnose": "Run diagnostics →",
 
     "attach.title": "Attachments",
     "attach.add": "Attach a file",
     "attach.hint": "PDF, Word, PowerPoint, Excel, images or text — no size limit",
     "attach.uploading": "Uploading {name}…",
+    "error.upload": "The file could not be uploaded to Google. Open Details for the reason.",
     "error.fileOld": "The old .doc / .ppt / .xls formats aren't supported. Open the file and save it as .docx, .pptx or .xlsx.",
     "error.fileEmpty": "I couldn't find any text in that file.",
 

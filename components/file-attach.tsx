@@ -23,6 +23,7 @@ export function FileAttach({ value, onChange, compact }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
 
   const take = async (files: FileList | null) => {
@@ -40,6 +41,7 @@ export function FileAttach({ value, onChange, compact }: Props) {
         onChange(next);
       } catch (err) {
         setError((err as Error)?.message || "error.generic");
+        setDetail((err as { detail?: string })?.detail ?? null);
       } finally {
         setBusy(null);
       }
@@ -122,7 +124,17 @@ export function FileAttach({ value, onChange, compact }: Props) {
         </div>
       )}
 
-      {error && <div className="alert alert-error small">{t(error as TKey)}</div>}
+      {error && (
+        <div className="alert alert-error small">
+          {t(error as TKey)}
+          {detail && (
+            <details style={{ marginTop: 6 }}>
+              <summary style={{ cursor: "pointer" }}>{t("health.detail")}</summary>
+              <code style={{ fontSize: ".76rem", overflowWrap: "anywhere" }}>{detail}</code>
+            </details>
+          )}
+        </div>
+      )}
 
       <input
         ref={input}

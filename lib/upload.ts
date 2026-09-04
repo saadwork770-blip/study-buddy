@@ -17,6 +17,11 @@ const NATIVE = [
   "text/csv",
 ];
 
+/** An Error carrying both a translation key and the raw cause, for display. */
+export function detailed(key: string, detail: string): Error & { detail: string } {
+  return Object.assign(new Error(key), { detail });
+}
+
 const isNative = (file: File) =>
   NATIVE.includes(file.type) || /\.(pdf|png|jpe?g|webp|txt|md|csv)$/i.test(file.name);
 
@@ -34,8 +39,14 @@ async function toGoogle(file: File, onProgress?: (pct: number) => void): Promise
       size: file.size,
     }),
   });
-  const body = (await session.json()) as { uploadUrl?: string; error?: string };
-  if (!session.ok || !body.uploadUrl) throw new Error(body.error ?? "error.generic");
+  const body = (await session.json().catch(() => ({}))) as {
+    uploadUrl?: string;
+    error?: string;
+    detail?: string;
+  };
+  if (!session.ok || !body.uploadUrl) {
+    throw detailed(body.error ?? "error.generic", body.detail ?? `session HTTP ${session.status}`);
+  }
 
   const uploaded = await new Promise<{
     file?: { uri?: string; mimeType?: string; name?: string; state?: string };
@@ -54,13 +65,20 @@ async function toGoogle(file: File, onProgress?: (pct: number) => void): Promise
           try {
             resolve(JSON.parse(xhr.responseText));
           } catch {
-            reject(new Error("error.generic"));
+            reject(detailed("error.generic", `bad JSON from Google: ${xhr.responseText.slice(0, 300)}`));
           }
         } else {
-          reject(new Error("error.generic"));
+          reject(
+            detailed(
+              xhr.status === 403 || xhr.status === 401 ? "error.noKey" : "error.upload",
+              `Google returned HTTP ${xhr.status}: ${xhr.responseText.slice(0, 300)}`,
+            ),
+          );
         }
       };
-      xhr.onerror = () => reject(new Error("error.generic"));
+      // A network-level failure here is usually CORS or connectivity.
+      xhr.onerror = () =>
+        reject(detailed("error.upload", "the browser could not reach Google (network or CORS)"));
       xhr.send(file);
     },
   );

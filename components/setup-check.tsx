@@ -55,7 +55,10 @@ export function SetupCheck() {
 
   return (
     <div className="alert alert-error" role="alert">
-      <strong>{t("health.fail")}</strong> — {t((health.reason ?? "error.generic") as TKey)}
+      <strong>{t("health.fail")}</strong> — {t((health.reason ?? "error.generic") as TKey)}{" "}
+      <a href="/check" style={{ textDecoration: "underline" }}>
+        {t("health.diagnose")}
+      </a>
       {health.detail && (
         <details style={{ marginTop: 6 }}>
           <summary style={{ cursor: "pointer" }}>{t("health.detail")}</summary>

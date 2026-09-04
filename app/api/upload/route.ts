@@ -70,7 +70,13 @@ export async function POST(request: Request) {
       const detail = await response.text();
       console.error("[study-buddy] upload session failed:", response.status, detail);
       return Response.json(
-        { error: response.status === 401 || response.status === 403 ? "error.noKey" : "error.generic" },
+        {
+          error:
+            response.status === 401 || response.status === 403
+              ? "error.noKey"
+              : "error.upload",
+          detail: `Files API HTTP ${response.status}: ${detail.slice(0, 300)}`,
+        },
         { status: 502 },
       );
     }
