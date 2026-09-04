@@ -1,0 +1,27 @@
+{
+  "name": "study-buddy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI study companion for master's students - tasks, research, summarization, with full Arabic support and multi-format export",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.123.0",
+    "docx": "^9.7.1",
+    "mammoth": "^1.12.2",
+    "next": "^16.3.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "typescript": "^7.0.2"
+  }
+}
