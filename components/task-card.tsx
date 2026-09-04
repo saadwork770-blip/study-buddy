@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useLang } from "./lang-provider";
 import { Markdown } from "./markdown";
+import { FileAttach } from "./file-attach";
 import { uid } from "@/lib/store";
 import { type ExportFormat, exportPayload, taskToMarkdown } from "@/lib/export";
-import type { Task, TaskPlan, TaskStatus } from "@/lib/types";
+import type { Attachment, Task, TaskPlan, TaskStatus } from "@/lib/types";
 import type { TKey } from "@/lib/i18n";
 
 const STATUS_ORDER: TaskStatus[] = ["todo", "doing", "done"];
@@ -35,6 +36,7 @@ export function TaskCard({ task, onUpdate, onRemove }: Props) {
   const [planning, setPlanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [files, setFiles] = useState<Attachment[]>([]);
 
   const due = dueLabel(task.dueDate, t as never);
   const doneCount = task.subtasks.filter((sub) => sub.done).length;
@@ -49,7 +51,7 @@ export function TaskCard({ task, onUpdate, onRemove }: Props) {
       const response = await fetch("/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task, lang }),
+        body: JSON.stringify({ task, lang, attachments: files }),
       });
       const body = (await response.json()) as TaskPlan & { error?: string };
       if (!response.ok || body.error) throw new Error(body.error ?? "error.generic");
@@ -149,6 +151,10 @@ export function TaskCard({ task, onUpdate, onRemove }: Props) {
           {t(error as TKey)}
         </div>
       )}
+
+      <div className="no-print" style={{ marginTop: 11 }}>
+        <FileAttach value={files} onChange={setFiles} compact />
+      </div>
 
       <div className="row no-print" style={{ marginTop: 11 }}>
         <button

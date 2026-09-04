@@ -23,7 +23,9 @@ An AI study companion for master's students: assignment planning, research, summ
 | 📄 | **التلخيص** — ارفع PDF أو Word أو نصاً أو صورة، واختر: ملخص موجز/تفصيلي، قراءة نقدية، ملاحظات مذاكرة، بطاقات مراجعة، أو مخطط. | **Summarise** — upload PDF, Word, text or an image; choose brief/detailed summary, critical reading, study notes, flashcards or an outline. |
 | 💬 | **المذاكرة** — مدرّس، حوار سقراطي، اختبرني، أو بسّط لي. | **Study chat** — tutor, Socratic, quiz-me or explain-simply modes. |
 | 📚 | **المكتبة** — احفظ أي مخرج، وابحث فيه، وصدّره لاحقاً. | **Library** — save any output, search it, export it later. |
-| ⤓ | **تصدير** — Word (.docx)، PDF، Markdown، HTML، نص، JSON، وCSV للمهام. | **Export** — Word (.docx), PDF, Markdown, HTML, plain text, JSON, and CSV for tasks. |
+| ✍️ | **إنجاز التكاليف** — صِف التكليف وأرفق مصادرك لتحصل على تقرير أو مقال أو مراجعة أدبيات أو عرض تقديمي كامل. | **Produce** — describe the assignment, attach sources, get a finished report, essay, literature review, answers or presentation. |
+| 📎 | **رفع الملفات في كل قسم** — PDF أو Word أو صورة أو نص، بلا حدّ للحجم. | **Upload anywhere** — PDF, Word, images or text attach to every AI feature, with no size limit. |
+| ⤓ | **تصدير** — Word (.docx)، **PowerPoint (.pptx)**، PDF، Markdown، HTML، نص، JSON، وCSV للمهام. | **Export** — Word (.docx), **PowerPoint (.pptx)**, PDF, Markdown, HTML, plain text, JSON, and CSV for tasks. |
 
 ### دعم العربية · Arabic support
 
@@ -82,7 +84,7 @@ GEMINI_API_KEY=AIza...
 |---|---|---|
 | `GEMINI_MODEL` | `gemini-2.5-flash` | The free-tier workhorse. `gemini-2.5-pro` is stronger but its free quota is much smaller. |
 | `AI_EFFORT` | `high` | How hard the model thinks: `low` (thinking off, fastest, least quota), `medium`, `high`. |
-| `NEXT_PUBLIC_MAX_UPLOAD_MB` | `4` | Upload cap. Vercel limits a request body to ~4.5 MB; raise it when self-hosting. |
+| _(no upload variable)_ | — | There is no size cap: the browser uploads files straight to Google's Files API, so nothing large passes through the server. |
 
 للنشر · To deploy:
 
@@ -126,11 +128,16 @@ default branch is already the one Vercel will build.
 | `AI_EFFORT` | `low` يوقف «التفكير» فيصبح أسرع ويستهلك حصّة أقل، `high` (الافتراضي) لأفضل جودة. |
 | `GEMINI_MODEL` | `gemini-2.5-flash` (الافتراضي، حصّة مجانية سخيّة) أو `gemini-2.5-pro` لجودة أعلى بحصّة أصغر. |
 
-**Known platform limits.** Vercel caps a serverless request body at ~4.5 MB, so
-file upload defaults to 4 MB there — raise `NEXT_PUBLIC_MAX_UPLOAD_MB` when you
-self-host. Functions are capped at `maxDuration = 300` seconds in the route
-handlers; on a plan without Fluid Compute that ceiling is lower, so a "deep"
-research run may be cut off — use "balanced" depth there.
+**Uploads bypass the server entirely.** Vercel caps a serverless request body at
+~4.5 MB, which would make a real thesis PDF impossible. Instead `/api/upload`
+mints a resumable-upload session against the Gemini Files API with the secret
+key, and the browser sends the bytes directly to Google — so there is no size
+limit and the key is never exposed. Word files are converted to text in the
+browser (`mammoth`), since the Files API does not host `.docx`.
+
+**Remaining platform limit.** Functions are capped at `maxDuration = 300`
+seconds; on a plan without Fluid Compute that ceiling is lower, so a "long"
+deliverable or "deep" research run may be cut off — use a shorter setting there.
 
 ### بدائل · Other hosts
 
@@ -204,6 +211,8 @@ Prompts are written to help you understand, plan and revise your own work. The m
 ## ملاحظات تقنية · Technical notes
 
 - Next.js 16 (App Router) · React 19 · TypeScript · بدون مكتبة واجهة خارجية.
+- Uploads: `/api/upload` returns a resumable Gemini Files API session; the browser POSTs the file to Google directly, then passes the returned `fileUri` to the AI routes as a `fileData` part.
+- Slides: `pptxgenjs` converts Markdown to `.pptx` — headings become slides, lists become bullets, and loose prose becomes speaker notes so a slide never turns into a wall of text.
 - Gemini via `@google/genai` — streaming, a configurable thinking budget, **Google Search grounding** for real citations on the Research page, and `responseSchema` JSON output for task plans.
 - PDFs and images are sent to Gemini as native `inlineData` parts; `.docx` is converted locally with `mammoth`.
 - Uploads are capped by `NEXT_PUBLIC_MAX_UPLOAD_MB` (4 MB by default, for Vercel's sake).

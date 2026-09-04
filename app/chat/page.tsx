@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { useLang } from "@/components/lang-provider";
 import { Markdown } from "@/components/markdown";
 import { ExpertPicker } from "@/components/expert-picker";
+import { FileAttach } from "@/components/file-attach";
 import { useLibrary } from "@/lib/store";
 import { readNdjson } from "@/lib/stream";
 import { exportPayload } from "@/lib/export";
-import type { ChatMessage } from "@/lib/types";
+import type { Attachment, ChatMessage } from "@/lib/types";
 import type { TKey } from "@/lib/i18n";
 
 const MODES: { value: string; label: TKey }[] = [
@@ -27,6 +28,7 @@ export default function ChatPage() {
   const [mode, setMode] = useState("tutor");
   const [subject, setSubject] = useState("");
   const [expert, setExpert] = useState<string | null>(null);
+  const [files, setFiles] = useState<Attachment[]>([]);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -55,7 +57,7 @@ export default function ChatPage() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history, lang, mode, subject, expert }),
+        body: JSON.stringify({ messages: history, lang, mode, subject, expert, attachments: files }),
         signal: abort.signal,
       });
 
@@ -205,6 +207,10 @@ export default function ChatPage() {
       )}
 
       {error && <div className="alert alert-error">{t(error as TKey)}</div>}
+
+      <div className="no-print" style={{ marginBottom: 8 }}>
+        <FileAttach value={files} onChange={setFiles} compact />
+      </div>
 
       <form
         className="composer no-print"

@@ -1,7 +1,7 @@
-import { errorKey, generateJson } from "@/lib/ai";
+import { attachmentParts, errorKey, generateJson } from "@/lib/ai";
 import { ROLE, systemPrompt } from "@/lib/prompts";
 import type { Lang } from "@/lib/i18n";
-import type { Task, TaskPlan } from "@/lib/types";
+import type { Attachment, Task, TaskPlan } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -37,7 +37,11 @@ const PLAN_SCHEMA = {
 };
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as { task: Task; lang: Lang };
+  const body = (await request.json()) as {
+    task: Task;
+    lang: Lang;
+    attachments?: Attachment[];
+  };
   const lang: Lang = body.lang === "en" ? "en" : "ar";
   const task = body.task;
   const today = new Date().toISOString().slice(0, 10);
@@ -63,7 +67,12 @@ export async function POST(request: Request) {
     .join("\n");
 
   try {
-    const plan = await generateJson<TaskPlan>(system, prompt, PLAN_SCHEMA);
+    const plan = await generateJson<TaskPlan>(
+      system,
+      prompt,
+      PLAN_SCHEMA,
+      attachmentParts(body.attachments),
+    );
     if (!plan) return Response.json({ error: "error.generic" }, { status: 502 });
     return Response.json(plan);
   } catch (err) {

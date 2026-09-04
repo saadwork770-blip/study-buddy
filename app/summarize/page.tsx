@@ -1,11 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useLang } from "@/components/lang-provider";
 import { OutputPanel } from "@/components/output-panel";
 import { ExpertPicker } from "@/components/expert-picker";
+import { FileAttach } from "@/components/file-attach";
 import { useStream } from "@/lib/use-stream";
 import type { TKey } from "@/lib/i18n";
+import type { Attachment } from "@/lib/types";
 
 const STYLES: { value: string; label: TKey }[] = [
   { value: "brief", label: "summarize.style.brief" },
@@ -16,50 +18,31 @@ const STYLES: { value: string; label: TKey }[] = [
   { value: "outline", label: "summarize.style.outline" },
 ];
 
-const MAX_UPLOAD_MB = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB) || 4;
-const MAX_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
-
 export default function SummarizePage() {
   const { t, lang } = useLang();
   const stream = useStream();
   const [text, setText] = useState("");
   const [style, setStyle] = useState("brief");
-  const [file, setFile] = useState<File | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const [files, setFiles] = useState<Attachment[]>([]);
   const [expert, setExpert] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const chooseFile = (next: File | null) => {
-    if (next && next.size > MAX_BYTES) {
-      setLocalError("error.fileTooBig");
-      return;
-    }
-    setLocalError(null);
-    setFile(next);
-  };
 
   const start = () => {
     if (stream.running) return;
-    if (!text.trim() && !file) {
+    if (!text.trim() && !files.length) {
       setLocalError("summarize.needInput");
       return;
     }
     setLocalError(null);
 
-    const form = new FormData();
-    form.set("lang", lang);
-    form.set("style", style);
-    form.set("text", text);
-    if (expert) form.set("expert", expert);
-    if (file) {
-      form.set("file", file);
-      form.set("title", file.name);
-    }
-    void stream.run("/api/summarize", { method: "POST", body: form });
+    void stream.run("/api/summarize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lang, style, text, expert, attachments: files }),
+    });
   };
 
-  const title = file?.name || text.slice(0, 60) || t("summarize.title");
+  const title = files[0]?.name || text.slice(0, 60) || t("summarize.title");
 
   return (
     <main className="page">
@@ -87,60 +70,7 @@ export default function SummarizePage() {
             />
           </div>
 
-          <div className="field">
-            <label>{t("summarize.upload")}</label>
-            {file ? (
-              <div className="row-between card card-tight">
-                <span className="small" style={{ overflowWrap: "anywhere" }}>
-                  📎 {file.name}{" "}
-                  <span className="tiny muted">({Math.round(file.size / 1024)} KB)</span>
-                </span>
-                <button
-                  type="button"
-                  className="button button-ghost button-sm"
-                  onClick={() => {
-                    chooseFile(null);
-                    if (inputRef.current) inputRef.current.value = "";
-                  }}
-                >
-                  {t("summarize.remove")}
-                </button>
-              </div>
-            ) : (
-              <div
-                className={dragging ? "dropzone drag" : "dropzone"}
-                role="button"
-                tabIndex={0}
-                onClick={() => inputRef.current?.click()}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") inputRef.current?.click();
-                }}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setDragging(true);
-                }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  setDragging(false);
-                  chooseFile(event.dataTransfer.files?.[0] ?? null);
-                }}
-              >
-                <div style={{ fontSize: "1.6rem" }} aria-hidden="true">
-                  ⬆
-                </div>
-                <div className="small">{t("summarize.upload")}</div>
-                <div className="hint">{t("summarize.uploadHint", { n: MAX_UPLOAD_MB })}</div>
-              </div>
-            )}
-            <input
-              ref={inputRef}
-              type="file"
-              hidden
-              accept=".pdf,.docx,.txt,.md,.markdown,.csv,.tsv,.json,.html,.htm,image/*"
-              onChange={(event) => chooseFile(event.target.files?.[0] ?? null)}
-            />
-          </div>
+          <FileAttach value={files} onChange={setFiles} />
 
           <div className="field">
             <label htmlFor="style">{t("summarize.style")}</label>
@@ -155,7 +85,7 @@ export default function SummarizePage() {
 
           <ExpertPicker value={expert} onChange={setExpert} />
 
-          {localError && <div className="alert alert-error">{t(localError as TKey, { n: MAX_UPLOAD_MB })}</div>}
+          {localError && <div className="alert alert-error">{t(localError as TKey)}</div>}
 
           <div className="row">
             <button type="submit" className="button" disabled={stream.running}>

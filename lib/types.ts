@@ -1,9 +1,21 @@
 import type { Lang } from "./i18n";
 
-/** One piece of a message: text, or an inlined file (PDF, image). */
+/** One piece of a message: text, an inlined file, or one hosted by Google. */
 export type AiPart =
   | { text: string }
-  | { inlineData: { mimeType: string; data: string } };
+  | { inlineData: { mimeType: string; data: string } }
+  | { fileData: { mimeType: string; fileUri: string } };
+
+/** A file the browser uploaded straight to the Gemini Files API. */
+export interface Attachment {
+  name: string;
+  mimeType: string;
+  size: number;
+  /** Google-hosted file URI, for anything Gemini reads natively. */
+  fileUri?: string;
+  /** Text extracted in the browser instead (.docx, plain text). */
+  text?: string;
+}
 
 /** Gemini names the assistant role "model". */
 export interface AiMessage {

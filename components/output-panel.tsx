@@ -11,6 +11,7 @@ import type { TKey } from "@/lib/i18n";
 
 const FORMATS: { format: ExportFormat; label: string; icon: string }[] = [
   { format: "docx", label: "Word (.docx)", icon: "📝" },
+  { format: "pptx", label: "PowerPoint (.pptx)", icon: "📊" },
   { format: "pdf", label: "PDF", icon: "🖨" },
   { format: "md", label: "Markdown (.md)", icon: "⌘" },
   { format: "html", label: "HTML", icon: "🌐" },

@@ -9,6 +9,7 @@ const CARDS: { href: string; icon: string; title: TKey; body: TKey }[] = [
   { href: "/tasks", icon: "🗂", title: "home.card.tasks.title", body: "home.card.tasks.body" },
   { href: "/research", icon: "🔎", title: "home.card.research.title", body: "home.card.research.body" },
   { href: "/summarize", icon: "📄", title: "home.card.summarize.title", body: "home.card.summarize.body" },
+  { href: "/produce", icon: "✍️", title: "produce.title", body: "produce.subtitle" },
   { href: "/chat", icon: "💬", title: "home.card.chat.title", body: "home.card.chat.body" },
   { href: "/library", icon: "⤓", title: "home.card.export.title", body: "home.card.export.body" },
   { href: "/chat", icon: "ع", title: "home.card.arabic.title", body: "home.card.arabic.body" },

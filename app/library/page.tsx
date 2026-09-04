@@ -10,6 +10,7 @@ import type { TKey } from "@/lib/i18n";
 
 const FORMATS: { format: ExportFormat; label: string }[] = [
   { format: "docx", label: "Word" },
+  { format: "pptx", label: "PPT" },
   { format: "pdf", label: "PDF" },
   { format: "md", label: "MD" },
   { format: "html", label: "HTML" },

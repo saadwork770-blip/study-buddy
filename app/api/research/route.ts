@@ -1,7 +1,8 @@
-import { ndjsonStream, streamTurn } from "@/lib/ai";
+import { attachmentParts, ndjsonStream, streamTurn } from "@/lib/ai";
 import { ROLE, researchDepthPrompt, systemPrompt } from "@/lib/prompts";
 import { type ExpertId, withExpert } from "@/lib/experts";
 import type { Lang } from "@/lib/i18n";
+import type { Attachment } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -13,6 +14,7 @@ interface Body {
   web?: boolean;
   lang: Lang;
   expert?: ExpertId;
+  attachments?: Attachment[];
 }
 
 export async function POST(request: Request) {
@@ -46,6 +48,9 @@ export async function POST(request: Request) {
   const prompt = [
     body.field?.trim() ? `Field of study: ${body.field.trim()}` : "",
     `Research question / topic: ${question}`,
+    body.attachments?.length
+      ? "The student attached sources above — read them and weave them into the brief."
+      : "",
   ]
     .filter(Boolean)
     .join("\n");
@@ -54,7 +59,9 @@ export async function POST(request: Request) {
     if (!question) return;
     const { sources } = await streamTurn(emit, {
       system,
-      messages: [{ role: "user", parts: [{ text: prompt }] }],
+      messages: [
+        { role: "user", parts: [...attachmentParts(body.attachments), { text: prompt }] },
+      ],
       maxTokens: 16384,
       search: useWeb,
       statusLabels: { thinking: "out.thinking", searching: "research.searching" },

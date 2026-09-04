@@ -1,6 +1,6 @@
 import "server-only";
 import { GoogleGenAI } from "@google/genai";
-import type { AiMessage, Source, StreamEvent } from "./types";
+import type { AiMessage, AiPart, Attachment, Source, StreamEvent } from "./types";
 
 export const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 export const EFFORT = (process.env.AI_EFFORT || "high") as
@@ -47,6 +47,18 @@ export function errorKey(err: unknown): string {
     return "error.busy";
   if (/API key not valid|API_KEY_INVALID/i.test(message)) return "error.noKey";
   return "error.generic";
+}
+
+/** Turns uploaded attachments into message parts. */
+export function attachmentParts(attachments: Attachment[] | undefined): AiPart[] {
+  if (!attachments?.length) return [];
+  return attachments.flatMap((file): AiPart[] => {
+    if (file.fileUri) {
+      return [{ fileData: { mimeType: file.mimeType, fileUri: file.fileUri } }];
+    }
+    if (file.text) return [{ text: `--- ${file.name} ---\n${file.text}` }];
+    return [];
+  });
 }
 
 type Emit = (event: StreamEvent) => void;
@@ -200,12 +212,13 @@ export async function generateJson<T>(
   system: string,
   prompt: string,
   schema: Record<string, unknown>,
+  extraParts: AiPart[] = [],
 ): Promise<T | null> {
   const ai = getClient();
   const response = await withRetry(() =>
     ai.models.generateContent({
       model: MODEL,
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      contents: [{ role: "user", parts: [...extraParts, { text: prompt }] }],
       config: {
         systemInstruction: system,
         responseMimeType: "application/json",

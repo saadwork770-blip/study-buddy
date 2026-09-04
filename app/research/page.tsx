@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useLang } from "@/components/lang-provider";
 import { OutputPanel } from "@/components/output-panel";
 import { ExpertPicker } from "@/components/expert-picker";
+import { FileAttach } from "@/components/file-attach";
 import { useStream } from "@/lib/use-stream";
 import type { TKey } from "@/lib/i18n";
+import type { Attachment } from "@/lib/types";
 
 const DEPTHS: { value: string; label: TKey }[] = [
   { value: "quick", label: "research.depth.quick" },
@@ -20,6 +22,7 @@ export default function ResearchPage() {
   const [field, setField] = useState("");
   const [depth, setDepth] = useState("standard");
   const [web, setWeb] = useState(true);
+  const [files, setFiles] = useState<Attachment[]>([]);
   // The literature-review specialist is the default voice for this page.
   const [expert, setExpert] = useState<string | null>("research-synthesist");
 
@@ -28,7 +31,7 @@ export default function ResearchPage() {
     void stream.run("/api/research", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, field, depth, web, lang, expert }),
+      body: JSON.stringify({ question, field, depth, web, lang, expert, attachments: files }),
     });
   };
 
@@ -86,6 +89,8 @@ export default function ResearchPage() {
               ))}
             </div>
           </div>
+
+          <FileAttach value={files} onChange={setFiles} />
 
           <ExpertPicker value={expert} onChange={setExpert} />
 

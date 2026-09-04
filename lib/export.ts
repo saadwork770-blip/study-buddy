@@ -4,7 +4,7 @@ import { markdownToText, renderMarkdown } from "./markdown";
 import type { Lang } from "./i18n";
 import type { Source, Task } from "./types";
 
-export type ExportFormat = "md" | "txt" | "html" | "docx" | "pdf" | "json";
+export type ExportFormat = "md" | "txt" | "html" | "docx" | "pptx" | "pdf" | "json";
 
 export interface ExportPayload {
   title: string;
@@ -146,6 +146,20 @@ export function exportJson(payload: ExportPayload) {
   );
 }
 
+export async function exportPptx(payload: ExportPayload) {
+  const response = await fetch("/api/export/pptx", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      markdown: withSources(payload),
+      title: payload.title,
+      lang: payload.lang,
+    }),
+  });
+  if (!response.ok) throw new Error("pptx export failed");
+  download(await response.blob(), `${safeFilename(payload.title)}.pptx`);
+}
+
 export async function exportDocx(payload: ExportPayload) {
   const response = await fetch("/api/export/docx", {
     method: "POST",
@@ -191,6 +205,8 @@ export function exportPayload(format: ExportFormat, payload: ExportPayload) {
       return exportJson(payload);
     case "docx":
       return exportDocx(payload);
+    case "pptx":
+      return exportPptx(payload);
     case "pdf":
       return exportPdf(payload);
   }

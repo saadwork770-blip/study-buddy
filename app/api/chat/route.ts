@@ -1,7 +1,7 @@
-import { ndjsonStream, streamTurn } from "@/lib/ai";
+import { attachmentParts, ndjsonStream, streamTurn } from "@/lib/ai";
 import { ROLE, chatModePrompt, systemPrompt } from "@/lib/prompts";
 import { type ExpertId, withExpert } from "@/lib/experts";
-import type { AiMessage, ChatMessage } from "@/lib/types";
+import type { AiMessage, Attachment, ChatMessage } from "@/lib/types";
 import type { Lang } from "@/lib/i18n";
 
 export const runtime = "nodejs";
@@ -13,6 +13,7 @@ interface Body {
   mode?: string;
   subject?: string;
   expert?: ExpertId;
+  attachments?: Attachment[];
 }
 
 export async function POST(request: Request) {
@@ -36,6 +37,11 @@ export async function POST(request: Request) {
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
   }));
+
+  // Attachments ride with the latest question so Claude sees them in context.
+  const files = attachmentParts(body.attachments);
+  const last = messages[messages.length - 1];
+  if (files.length && last?.role === "user") last.parts = [...files, ...last.parts];
 
   return ndjsonStream(async (emit) => {
     if (!messages.length) return;

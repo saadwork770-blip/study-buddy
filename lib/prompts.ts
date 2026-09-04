@@ -34,6 +34,83 @@ export function systemPrompt(lang: Lang, role: string) {
   ].join("\n");
 }
 
+/**
+ * Deliverable mode produces a finished document rather than tutoring notes,
+ * so the "this is only a draft" framing is dropped. The factual-accuracy rule
+ * stays: a fabricated citation in submitted work is far worse than a gap.
+ */
+export function deliverableSystemPrompt(lang: Lang, kind: string) {
+  const base = systemPrompt(lang, ROLE.produce);
+  return base
+    .replace(
+      "- Academic integrity: help the student understand, plan, structure and revise their own work. Do not present ghost-written text as something to submit as-is; when you draft, mark it as a draft the student must rewrite and verify.",
+      [
+        "- Produce the complete, finished piece of work — not an outline of one, and not advice about how to write it. Write it as the student would submit it.",
+        "- Do not add meta-commentary, disclaimers, or notes to the student inside the document. No 'here is your essay' preamble and no closing offer to help further.",
+        "- Never invent a citation, statistic, author, year, DOI or page number. Where a claim needs a source the student must supply or verify, write it as [مرجع مطلوب] / [citation needed] rather than inventing one.",
+      ].join("\n"),
+    )
+    .concat("\n\n", deliverableShape(kind));
+}
+
+function deliverableShape(kind: string): string {
+  switch (kind) {
+    case "essay":
+      return [
+        "Write an ACADEMIC ESSAY:",
+        "- A title, then a clear introduction that states the thesis and maps the argument.",
+        "- Body sections with headings, each advancing one part of the argument with evidence and analysis.",
+        "- A conclusion that answers the question and states what follows from it.",
+        "- No bullet lists in the body: this is continuous academic prose.",
+      ].join("\n");
+    case "report":
+      return [
+        "Write a STRUCTURED REPORT with numbered sections:",
+        "1. Introduction and objectives  2. Background  3. Method or approach",
+        "4. Findings or analysis (with tables where they carry data better than prose)",
+        "5. Discussion  6. Conclusions  7. Recommendations",
+      ].join("\n");
+    case "litreview":
+      return [
+        "Write a LITERATURE REVIEW organised thematically, not source by source:",
+        "- Introduce the scope and the criteria for what is included.",
+        "- Group the literature by theme or position; within each, show where researchers agree and where they conflict.",
+        "- Name the gap the student's own study could fill.",
+        "- Close with a synthesis, then a References heading listing only sources actually provided or found.",
+      ].join("\n");
+    case "answers":
+      return [
+        "ANSWER THE QUESTIONS the student supplied, in order:",
+        "- Restate each question as a heading, then answer it fully.",
+        "- Show the working for anything quantitative, step by step.",
+        "- Where a question asks for discussion, give a reasoned argument rather than a list.",
+      ].join("\n");
+    case "slides":
+      return [
+        "Write a PRESENTATION as Markdown that converts cleanly into slides:",
+        "- Use `##` for each slide title. Aim for 10-14 slides.",
+        "- Under each heading put 3-6 short bullet points — a phrase each, never a paragraph.",
+        "- Any longer explanation goes in a plain paragraph under the bullets; it becomes the speaker notes.",
+        "- Open with a title slide and an agenda; close with conclusions and, if relevant, references.",
+      ].join("\n");
+    default:
+      return [
+        "Write a SUMMARY DOCUMENT: a short abstract, the substance under clear headings, and a conclusion.",
+      ].join("\n");
+  }
+}
+
+export function deliverableLength(length: string): string {
+  switch (length) {
+    case "short":
+      return "Target roughly 700-1000 words. Be dense; cut anything that does not carry the argument.";
+    case "long":
+      return "Target roughly 2500-3500 words, with the depth and sectioning that length implies.";
+    default:
+      return "Target roughly 1400-1800 words.";
+  }
+}
+
 export const ROLE = {
   chat: "Right now you are tutoring: explaining concepts, answering questions and quizzing the student.",
   research:
@@ -42,6 +119,8 @@ export const ROLE = {
     "Right now you are summarising and analysing a source the student gave you.",
   planner:
     "Right now you are breaking a course deliverable into a realistic, scheduled plan of work.",
+  produce:
+    "Right now you are writing a finished piece of academic work for the student, to their specification.",
 } as const;
 
 export function chatModePrompt(mode: string): string {
