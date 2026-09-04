@@ -4,6 +4,20 @@ import type { AiMessage, AiPart, Attachment, Source, StreamEvent } from "./types
 import { fallbackChain, isTextOnly, streamFromProvider } from "./providers";
 
 export const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+
+/**
+ * Gemini's free quota is counted per project PER MODEL, so a model that is
+ * exhausted says nothing about the next one. Trying a sibling model first is
+ * free, needs no extra key, and unlike an external provider it keeps Google
+ * Search grounding and uploaded files working.
+ */
+export const MODEL_FALLBACKS = (
+  process.env.GEMINI_FALLBACK_MODELS ||
+  "gemini-2.5-flash-lite,gemini-2.0-flash,gemini-2.0-flash-lite"
+)
+  .split(",")
+  .map((model) => model.trim())
+  .filter((model) => model && model !== MODEL);
 export const EFFORT = (process.env.AI_EFFORT || "high") as
   | "low"
   | "medium"
@@ -163,11 +177,11 @@ export async function streamTurn(
 ): Promise<{ text: string; sources: Source[] }> {
   const ai = getClient();
 
-  const openStream = () =>
+  const openStream = (model: string) =>
     withRetry(
       () =>
         ai.models.generateContentStream({
-        model: MODEL,
+        model,
         contents: opts.messages,
         config: {
           systemInstruction: opts.system,
@@ -179,10 +193,25 @@ export async function streamTurn(
       opts.signal,
     );
 
-  let stream: Awaited<ReturnType<typeof openStream>>;
-  try {
-    stream = await openStream();
-  } catch (err) {
+  let stream: Awaited<ReturnType<typeof openStream>> | null = null;
+  let lastError: unknown;
+
+  // Primary model, then its siblings — each has its own daily allowance.
+  for (const model of [MODEL, ...MODEL_FALLBACKS]) {
+    try {
+      stream = await openStream(model);
+      if (model !== MODEL) {
+        console.warn(`[study-buddy] ${MODEL} out of quota, using ${model}`);
+      }
+      break;
+    } catch (err) {
+      lastError = err;
+      if (!isExhausted(err)) break;
+    }
+  }
+
+  if (!stream) {
+    const err = lastError;
     // Primary is out of quota: hand the turn to a fallback provider, but only
     // when nothing about it depends on Gemini specifically.
     const chain = fallbackChain();
@@ -191,9 +220,7 @@ export async function streamTurn(
     }
     for (const provider of chain) {
       try {
-        if (opts.statusLabels?.thinking) {
-          emit({ type: "status", label: "out.fallback" });
-        }
+        emit({ type: "status", label: "out.fallback" });
         const answer = await streamFromProvider(
           provider,
           opts.system,
@@ -256,19 +283,35 @@ export async function generateJson<T>(
   extraParts: AiPart[] = [],
 ): Promise<T | null> {
   const ai = getClient();
-  const response = await withRetry(() =>
-    ai.models.generateContent({
-      model: MODEL,
-      contents: [{ role: "user", parts: [...extraParts, { text: prompt }] }],
-      config: {
-        systemInstruction: system,
-        responseMimeType: "application/json",
-        responseSchema: schema,
-        maxOutputTokens: 8192,
-        thinkingConfig: { thinkingBudget: THINKING_BUDGET[EFFORT] ?? -1 },
-      },
-    }),
-  );
+
+  const attempt = (model: string) =>
+    withRetry(() =>
+      ai.models.generateContent({
+        model,
+        contents: [{ role: "user", parts: [...extraParts, { text: prompt }] }],
+        config: {
+          systemInstruction: system,
+          responseMimeType: "application/json",
+          responseSchema: schema,
+          maxOutputTokens: 8192,
+          thinkingConfig: { thinkingBudget: THINKING_BUDGET[EFFORT] ?? -1 },
+        },
+      }),
+    );
+
+  // Same per-model quota walk as the streaming path.
+  let response: Awaited<ReturnType<typeof attempt>> | null = null;
+  let lastError: unknown;
+  for (const model of [MODEL, ...MODEL_FALLBACKS]) {
+    try {
+      response = await attempt(model);
+      break;
+    } catch (err) {
+      lastError = err;
+      if (!isExhausted(err)) throw err;
+    }
+  }
+  if (!response) throw lastError;
 
   const text = response.text;
   if (!text) return null;

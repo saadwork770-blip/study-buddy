@@ -167,6 +167,19 @@ npm run check
 home page runs the same check itself (`/api/health`) on every load — green when
 Gemini is reachable, red with the exact reason when it is not.
 
+### عند نفاد الحصّة · When the quota runs out
+
+حصّة Gemini المجانية تُحسب **لكل نموذج على حدة**، لذا عند نفاد حصّة النموذج
+الأساسي ينتقل التطبيق تلقائياً إلى نموذج شقيق له حصّة مستقلة — وهذا مجاني ولا
+يحتاج أي مفتاح إضافي، ويحافظ على البحث في الويب ورفع الملفات.
+
+Gemini counts its free quota **per model**, so when one is spent the app moves
+to a sibling model that still has its own allowance. That needs no extra key and,
+unlike an external provider, keeps Google Search grounding and file uploads
+working. Set `GEMINI_FALLBACK_MODELS` to change the order.
+
+Only once every Gemini model is spent does it reach for the providers below.
+
 ### مزوّدات احتياطية · Backup providers
 
 الطبقة المجانية من Gemini لها سقف يومي. يمكنك إضافة مزوّدات مجانية أخرى، فيتحوّل

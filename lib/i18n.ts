@@ -324,7 +324,7 @@ const dict = {
 
     "error.noKey":
       "لم يتم ضبط مفتاح GEMINI_API_KEY أو أنه مرفوض. أضِفه في Vercel ضمن Settings ← Environment Variables ثم أعد النشر (أو في ‎.env.local محلياً).",
-    "error.rate": "تم بلوغ حصّة الطبقة المجانية مؤقتاً. انتظر قليلاً ثم أعد المحاولة.",
+    "error.rate": "انتهت حصّتك اليومية المجانية من Gemini لهذا النموذج. جرّبتُ نماذج بديلة وكلّها مستهلكة. الحلّ: أضِف مفتاح مزوّد احتياطي مجاني (Groq مثلاً) في إعدادات Vercel، أو انتظر إعادة ضبط الحصّة.",
     "error.busy": "خوادم Gemini مزدحمة الآن. حاولتُ ثلاث مرات — أعد المحاولة بعد قليل.",
     "error.generic": "تعذّر إكمال الطلب. حاول مرة أخرى.",
     "error.fileTooBig": "حجم الملف كبير جداً (الحد {n} ميغابايت).",
@@ -648,7 +648,7 @@ const dict = {
 
     "error.noKey":
       "GEMINI_API_KEY is missing or rejected. Add it in Vercel under Settings → Environment Variables and redeploy (or in .env.local when running locally).",
-    "error.rate": "Free-tier quota reached for now. Wait a moment and try again.",
+    "error.rate": "Your daily free Gemini quota for this model is used up. I tried the sibling models and they are spent too. Fix: add a free backup provider key (Groq, for example) in your Vercel settings, or wait for the quota to reset.",
     "error.busy": "Gemini is busy right now. I retried three times — please try again shortly.",
     "error.generic": "The request could not be completed. Please try again.",
     "error.fileTooBig": "That file is too large ({n} MB max).",
