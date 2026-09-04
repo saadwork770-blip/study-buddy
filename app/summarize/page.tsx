@@ -15,7 +15,8 @@ const STYLES: { value: string; label: TKey }[] = [
   { value: "outline", label: "summarize.style.outline" },
 ];
 
-const MAX_BYTES = 20 * 1024 * 1024;
+const MAX_UPLOAD_MB = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB) || 4;
+const MAX_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 
 export default function SummarizePage() {
   const { t, lang } = useLang();
@@ -126,7 +127,7 @@ export default function SummarizePage() {
                   ⬆
                 </div>
                 <div className="small">{t("summarize.upload")}</div>
-                <div className="hint">{t("summarize.uploadHint")}</div>
+                <div className="hint">{t("summarize.uploadHint", { n: MAX_UPLOAD_MB })}</div>
               </div>
             )}
             <input
@@ -149,7 +150,7 @@ export default function SummarizePage() {
             </select>
           </div>
 
-          {localError && <div className="alert alert-error">{t(localError as TKey)}</div>}
+          {localError && <div className="alert alert-error">{t(localError as TKey, { n: MAX_UPLOAD_MB })}</div>}
 
           <div className="row">
             <button type="submit" className="button" disabled={stream.running}>

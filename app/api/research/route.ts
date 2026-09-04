@@ -9,7 +9,7 @@ import { type ExpertId, withExpert } from "@/lib/experts";
 import type { Lang } from "@/lib/i18n";
 
 export const runtime = "nodejs";
-export const maxDuration = 600;
+export const maxDuration = 300;
 
 interface Body {
   question: string;

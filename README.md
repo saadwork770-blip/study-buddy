@@ -82,6 +82,56 @@ npm run build && npm start
 
 يعمل على أي منصّة تدعم Node.js‏ (Vercel، Netlify، Railway، أو خادم خاص). أضِف `ANTHROPIC_API_KEY` إلى متغيّرات البيئة هناك.
 
+
+---
+
+## النشر · Deploy it live
+
+الطريقة الأسرع هي **Vercel** (مجاني للاستخدام الشخصي، ولا يحتاج بطاقة):
+
+1. أنشئ مفتاحاً من [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) وتأكّد أن حسابك فيه رصيد.
+2. افتح [vercel.com/new](https://vercel.com/new) وسجّل الدخول بحساب GitHub.
+3. اختر مستودع **study-buddy** واضغط **Import**.
+4. افتح **Environment Variables** وأضِف:
+
+   | Name | Value |
+   |---|---|
+   | `ANTHROPIC_API_KEY` | `sk-ant-...` |
+
+5. اضغط **Deploy** وانتظر دقيقتين. ستحصل على رابط مثل `study-buddy.vercel.app`.
+
+الفرع الافتراضي للمستودع هو `claude/master-study-support-site-8g04ww`، وهو ما ستنشره Vercel تلقائياً — لا حاجة لتغيير شيء.
+
+The fastest route is **Vercel** (free tier, no card): create a key, open
+[vercel.com/new](https://vercel.com/new), import **study-buddy**, add
+`ANTHROPIC_API_KEY` under Environment Variables, and hit Deploy. The repo's
+default branch is already the one Vercel will build.
+
+### إعدادات تهمّك بعد النشر · Post-deploy settings
+
+| الإعداد | لماذا |
+|---|---|
+| **Fluid Compute** (Settings → Functions) | مُفعّل افتراضياً للمشاريع الجديدة. بدونه تتوقّف الدوال بعد ٦٠ ثانية، وقد لا يكتمل «البحث المعمّق». |
+| `NEXT_PUBLIC_MAX_UPLOAD_MB` | حجم الرفع الأقصى. الافتراضي **٤ ميغابايت** لأن Vercel تحدّ جسم الطلب عند ٤٫٥ تقريباً. إن استضفت التطبيق بنفسك (Node أو Docker أو Railway) ارفعه إلى ٢٠ أو أكثر. |
+| `ANTHROPIC_EFFORT` | `low` أو `medium` لتقليل التكلفة، `high` (الافتراضي) لأفضل جودة. |
+| `ANTHROPIC_MODEL` | لتغيير النموذج، مثل `claude-sonnet-5` لخفض التكلفة. |
+
+**Known platform limits.** Vercel caps a serverless request body at ~4.5 MB, so
+file upload defaults to 4 MB there — raise `NEXT_PUBLIC_MAX_UPLOAD_MB` when you
+self-host. Functions are capped at `maxDuration = 300` seconds in the route
+handlers; on a plan without Fluid Compute that ceiling is lower, so a "deep"
+research run may be cut off — use "balanced" depth there.
+
+### بدائل · Other hosts
+
+يعمل التطبيق على أي منصّة تشغّل Node.js. للاستضافة الذاتية:
+
+```bash
+npm ci && npm run build && npm start    # PORT=3000
+```
+
+ضَع `ANTHROPIC_API_KEY` في بيئة التشغيل، وارفع `NEXT_PUBLIC_MAX_UPLOAD_MB` إلى ٢٠ لأن حدّ ٤٫٥ ميغابايت خاصّ بـ Vercel وحدها.
+
 ---
 
 ## البنية · Project structure

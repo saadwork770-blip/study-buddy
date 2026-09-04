@@ -5,9 +5,12 @@ import { ROLE, summaryStylePrompt, systemPrompt } from "@/lib/prompts";
 import type { Lang } from "@/lib/i18n";
 
 export const runtime = "nodejs";
-export const maxDuration = 600;
+export const maxDuration = 300;
 
-const MAX_BYTES = 20 * 1024 * 1024;
+// Vercel's serverless request body caps at ~4.5 MB, so the default is 4.
+// Self-hosting (Node server, Docker, Railway) can raise it freely.
+const MAX_UPLOAD_MB = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB) || 4;
+const MAX_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 
 class InputError extends Error {
