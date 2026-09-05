@@ -1,14 +1,9 @@
-import { EFFORT, MODEL, MODEL_FALLBACKS, errorKey, geminiKey, getClient } from "@/lib/ai";
+import { EFFORT, MODEL, errorKey, geminiKey, probeGemini } from "@/lib/ai";
 import { configuredProviders, currentModel, streamFromProvider } from "@/lib/providers";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
-
-/** A model is spent for the day rather than broken. */
-const isExhausted = (err: unknown) =>
-  (err as { status?: number })?.status === 429 ||
-  /quota|RESOURCE_EXHAUSTED|rate limit/i.test(String((err as Error)?.message ?? ""));
 
 /**
  * Setup check: proves a key can actually reach Gemini. The home page calls
@@ -41,40 +36,31 @@ async function check(keys?: Record<string, string>) {
     });
   }
 
-  const client = getClient(keys);
-  let lastError: unknown;
-
-  for (const model of [MODEL, ...MODEL_FALLBACKS]) {
-    try {
-      const response = await client.models.generateContent({
-        model,
-        contents: [{ role: "user", parts: [{ text: "Reply with the single word: OK" }] }],
-        config: { maxOutputTokens: 256, thinkingConfig: { thinkingBudget: 0 } },
-      });
-      return Response.json({
-        ok: true,
-        model,
-        source,
-        // Says so plainly when the primary is spent but the app still works.
-        degraded: model !== MODEL,
-        effort: EFFORT,
-        reply: response.text,
-        fallbacks: backups,
-      });
-    } catch (err) {
-      lastError = err;
-      if (!isExhausted(err)) break;
-    }
+  try {
+    // The same walk the real request path uses, discovery included, so the
+    // check cannot pass on a model the app would never reach — nor fail on a
+    // retired one the app would have replaced.
+    const { value, model } = await probeGemini(keys);
+    return Response.json({
+      ok: true,
+      model,
+      source,
+      // Says so plainly when the primary is spent but the app still works.
+      degraded: model !== MODEL,
+      effort: EFFORT,
+      reply: value,
+      fallbacks: backups,
+    });
+  } catch (err) {
+    console.error("[study-buddy] health check failed:", err);
+    return Response.json({
+      ok: false,
+      reason: errorKey(err),
+      source,
+      detail: err instanceof Error ? err.message : String(err),
+      fallbacks: backups,
+    });
   }
-
-  console.error("[study-buddy] health check failed:", lastError);
-  return Response.json({
-    ok: false,
-    reason: errorKey(lastError),
-    source,
-    detail: lastError instanceof Error ? lastError.message : String(lastError),
-    fallbacks: backups,
-  });
 }
 
 /**

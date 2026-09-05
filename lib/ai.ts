@@ -18,6 +18,90 @@ export const MODEL_FALLBACKS = (
   .split(",")
   .map((model) => model.trim())
   .filter((model) => model && model !== MODEL);
+
+/**
+ * Google retires model names, and a name that still works for an existing
+ * project can be closed to new ones — "no longer available to new users" is
+ * a 404 for exactly one student and nobody else. Any hard-coded list above
+ * is therefore a guess with an expiry date, so it is only ever the opening
+ * guess: when it is refused, the API is asked what this key can actually
+ * call, and the answer is used and remembered.
+ */
+interface GeminiModel {
+  name: string;
+  supportedGenerationMethods?: string[];
+}
+
+const geminiBaseUrl = () =>
+  (process.env.GEMINI_BASE_URL?.trim() || "https://generativelanguage.googleapis.com").replace(
+    /\/$/,
+    "",
+  );
+
+/** Models that exist but cannot answer a chat turn. */
+const NOT_CHAT_MODEL =
+  /embedding|aqa|imagen|veo|tts|image-generation|learnlm-.*-vision|gemma/i;
+
+/**
+ * Preference, lowest first: a flash model is the one with a usable free
+ * allowance, and a newer version beats an older one. Nothing here names a
+ * specific model, so a version Google ships after this was written still
+ * sorts correctly.
+ */
+function rankGeminiModel(name: string): [number, number, number] {
+  const bare = name.replace(/^models\//, "");
+  const family = /flash-lite/i.test(bare)
+    ? 1
+    : /flash/i.test(bare)
+      ? 0
+      : /pro/i.test(bare)
+        ? 2
+        : 3;
+  // Negated so a higher version sorts first.
+  const version = -Number.parseFloat(/(\d+(?:\.\d+)?)/.exec(bare)?.[1] ?? "0");
+  const unstable = /-(exp|preview|latest)\b|-\d{3,}$/i.test(bare) ? 1 : 0;
+  return [family, unstable, version];
+}
+
+/** Ordered list of models this key may actually call, remembered per key. */
+const modelCache = new Map<string, string[]>();
+
+async function listGeminiModels(key: string, signal?: AbortSignal): Promise<string[]> {
+  const cached = modelCache.get(key);
+  if (cached) return cached;
+
+  const response = await fetch(`${geminiBaseUrl()}/v1beta/models`, {
+    headers: { "x-goog-api-key": key },
+    signal,
+  });
+  if (!response.ok) return [];
+
+  const body = (await response.json().catch(() => ({}))) as { models?: GeminiModel[] };
+  const usable = (body.models ?? [])
+    .filter((model) => model.supportedGenerationMethods?.includes("generateContent"))
+    .map((model) => model.name.replace(/^models\//, ""))
+    .filter((name) => name && !NOT_CHAT_MODEL.test(name))
+    .sort((a, b) => {
+      const [fa, ua, va] = rankGeminiModel(a);
+      const [fb, ub, vb] = rankGeminiModel(b);
+      return fa - fb || ua - ub || va - vb;
+    });
+
+  // One deployment has few keys; the cap is only to stop unbounded growth.
+  if (modelCache.size > 20) modelCache.clear();
+  if (usable.length) modelCache.set(key, usable);
+  return usable;
+}
+
+/** True when Google refused the model itself rather than the key or quota. */
+function isModelGone(err: unknown): boolean {
+  const status = (err as { status?: number })?.status;
+  const message = String((err as { message?: string })?.message ?? "");
+  if (status === 404) return true;
+  return /NOT_FOUND|no longer available|is not found|not supported for|does not exist/i.test(
+    message,
+  );
+}
 export const EFFORT = (process.env.AI_EFFORT || "high") as
   | "low"
   | "medium"
@@ -127,6 +211,11 @@ function isExhausted(err: unknown): boolean {
  */
 function canFallOver(err: unknown): boolean {
   if (err instanceof MissingKeyError) return true;
+  // A retired model — or a key allowed to call none at all — is as fatal to
+  // this turn as a dead key, and just as worth handing to a provider that
+  // still answers.
+  if (isModelGone(err)) return true;
+  if ((err as { key?: string })?.key === "error.noModel") return true;
   const status = (err as { status?: number })?.status;
   if (status && [401, 403, 429, 500, 502, 503, 504].includes(status)) return true;
   return /quota|RESOURCE_EXHAUSTED|rate limit|API[_ ]?KEY|UNAUTHENTICATED|PERMISSION_DENIED|overloaded|UNAVAILABLE|fetch failed|ECONNRESET/i.test(
@@ -153,6 +242,67 @@ async function withRetry<T>(
       if (!isTransient(err)) throw err;
       await wait(600 * 2 ** tries);
     }
+  }
+  throw lastError;
+}
+
+/**
+ * Runs `attempt` against the best model this key can actually call.
+ *
+ * The walk is ordered by what each failure means: a spent quota is counted
+ * per model, so a sibling is worth trying; a retired or restricted model is
+ * gone for good, so the API is asked what exists and the answer is used.
+ * Discovery happens once and is remembered, so the cost is one extra request
+ * the first time a hard-coded name goes stale — and never again.
+ */
+async function withGeminiModel<T>(
+  keys: UserKeys | undefined,
+  attempt: (model: string) => Promise<T>,
+  signal?: AbortSignal,
+): Promise<{ value: T; model: string }> {
+  const key = geminiKey(keys);
+  if (!key) throw new MissingKeyError();
+
+  const known = modelCache.get(key) ?? [];
+  const tried = new Set<string>();
+  const candidates = [...known.slice(0, 1), MODEL, ...MODEL_FALLBACKS];
+  let lastError: unknown;
+  let sawMissingModel = false;
+
+  for (const model of candidates) {
+    if (!model || tried.has(model)) continue;
+    tried.add(model);
+    try {
+      return { value: await attempt(model), model };
+    } catch (err) {
+      lastError = err;
+      if (isModelGone(err)) {
+        sawMissingModel = true;
+        continue;
+      }
+      // Quota is per model, so a sibling may still have room; anything else
+      // (a dead key, a malformed request) is the same for every model.
+      if (!isExhausted(err)) throw err;
+    }
+  }
+
+  // Every name we knew was refused or spent. Ask what this key can call.
+  const available = await listGeminiModels(key, signal).catch(() => []);
+  for (const model of available.filter((m) => !tried.has(m)).slice(0, 4)) {
+    try {
+      const value = await attempt(model);
+      console.warn(`[study-buddy] gemini: ${MODEL} unusable, using ${model}`);
+      return { value, model };
+    } catch (err) {
+      lastError = err;
+      if (!isModelGone(err) && !isExhausted(err)) throw err;
+    }
+  }
+
+  if (sawMissingModel && !available.length) {
+    throw Object.assign(new Error("no usable Gemini model for this key"), {
+      key: "error.noModel",
+    });
   }
   throw lastError;
 }
@@ -242,19 +392,11 @@ export async function streamTurn(
   let stream: Awaited<ReturnType<typeof openStream>> | null = null;
   let lastError: unknown = keyError;
 
-  // Primary model, then its siblings — each has its own daily allowance.
-  for (const model of ai ? [MODEL, ...MODEL_FALLBACKS] : []) {
+  if (ai) {
     try {
-      stream = await openStream(model);
-      if (model !== MODEL) {
-        console.warn(`[study-buddy] ${MODEL} out of quota, using ${model}`);
-      }
-      break;
+      stream = (await withGeminiModel(opts.keys, openStream, opts.signal)).value;
     } catch (err) {
       lastError = err;
-      // Quota is counted per model, so a sibling may still have room. Any
-      // other failure — a dead key above all — applies to all of them.
-      if (!isExhausted(err)) break;
     }
   }
 
@@ -327,6 +469,24 @@ export async function streamTurn(
   return { text, sources: [...sources.values()] };
 }
 
+/**
+ * One tiny call for the setup check, using the same model walk as everything
+ * else. Returns the reply and the model that produced it.
+ */
+export async function probeGemini(
+  keys?: UserKeys,
+): Promise<{ value: string; model: string }> {
+  const ai = getClient(keys);
+  return withGeminiModel(keys, async (model) => {
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ role: "user", parts: [{ text: "Reply with the single word: OK" }] }],
+      config: { maxOutputTokens: 256, thinkingConfig: { thinkingBudget: 0 } },
+    });
+    return response.text ?? "";
+  });
+}
+
 /** One non-streaming call that must come back as JSON matching `schema`. */
 export async function generateJson<T>(
   system: string,
@@ -361,15 +521,12 @@ export async function generateJson<T>(
   // Same per-model quota walk as the streaming path.
   let response: Awaited<ReturnType<typeof attempt>> | null = null;
   let lastError: unknown = keyError;
-  for (const model of ai ? [MODEL, ...MODEL_FALLBACKS] : []) {
+  if (ai) {
     try {
-      response = await attempt(model);
-      break;
+      response = (await withGeminiModel(keys, attempt)).value;
     } catch (err) {
       lastError = err;
       if (!canFallOver(err)) throw err;
-      // As above: only a spent per-model quota is worth another model.
-      if (!isExhausted(err)) break;
     }
   }
 
