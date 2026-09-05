@@ -174,6 +174,8 @@ const dict = {
     "out.result": "النتيجة",
     "out.thinking": "يفكّر…",
     "out.fallback": "حصّة Gemini انتهت — أُكمل عبر مزوّد بديل…",
+    "out.tried": "جُرّب",
+    "error.refused": "رفض المزوّد هذا الطلب.",
     "out.fallbackNoSearch": "حصّة Gemini انتهت — أُكمل عبر مزوّد بديل بلا بحث في الويب، فتحقّق من المراجع بنفسك.",
 
     "common.cancel": "إلغاء",
@@ -561,6 +563,8 @@ const dict = {
     "out.result": "Result",
     "out.thinking": "Thinking…",
     "out.fallback": "Gemini quota is spent — continuing on a backup provider…",
+    "out.tried": "Tried",
+    "error.refused": "The provider declined this request.",
     "out.fallbackNoSearch": "Gemini quota is spent — continuing on a backup provider without web search, so verify any sources yourself.",
 
     "common.cancel": "Cancel",

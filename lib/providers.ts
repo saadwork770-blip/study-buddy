@@ -21,6 +21,8 @@ export interface Provider {
   envModel: string;
   /** What the free tier gives you, for the setup docs. */
   free: string;
+  /** Which API shape this speaks; anything unset is OpenAI-compatible. */
+  kind?: "openai" | "anthropic";
   /**
    * Narrows what model discovery may pick for this provider — OpenRouter
    * lists paid models alongside free ones, and every provider lists
@@ -37,6 +39,19 @@ export interface ModelInfo {
 }
 
 export const PROVIDERS: Provider[] = [
+  {
+    // The only paid member of the rotation, and deliberately last: it is
+    // reached when everything free is spent, so it costs nothing until the
+    // alternative is no answer at all.
+    id: "anthropic",
+    label: "Claude",
+    envKey: "ANTHROPIC_API_KEY",
+    baseUrl: "https://api.anthropic.com",
+    defaultModel: "claude-opus-5",
+    envModel: "ANTHROPIC_MODEL",
+    kind: "anthropic",
+    free: "No free tier — billed per token. Strongest writing in the list.",
+  },
   {
     id: "groq",
     label: "Groq",
@@ -170,7 +185,13 @@ export function fallbackChain(
   const order = process.env.FALLBACK_ORDER?.split(",").map((id) => id.trim());
   const built = configuredProviders(userKeys);
   // The student's own entries go last: the built-in list is known to work.
-  const available = [...built, ...customProviders(custom)];
+  const all = [...built, ...customProviders(custom)];
+  // Free before paid, always. Claude is excellent and it is the one that
+  // charges, so it must never be reached while a free allowance remains.
+  const available = [
+    ...all.filter((provider) => provider.kind !== "anthropic"),
+    ...all.filter((provider) => provider.kind === "anthropic"),
+  ];
   if (!order?.length) return available;
   const ranked = order
     .map((id) => available.find((provider) => provider.id === id))
@@ -442,6 +463,29 @@ export async function streamFromProvider(
     discovered.set(provider.id, replacement);
     return text;
   }
+}
+
+/**
+ * Streams from a provider whatever API it speaks. Callers work in terms of
+ * "the next provider", not "the next OpenAI-compatible provider".
+ */
+export async function streamFromAny(
+  provider: Provider,
+  system: string,
+  messages: AiMessage[],
+  onText: (delta: string) => void,
+  options: {
+    maxTokens?: number;
+    signal?: AbortSignal;
+    json?: boolean;
+    userKeys?: UserKeys;
+  } = {},
+): Promise<string> {
+  if (provider.kind === "anthropic") {
+    const { streamFromAnthropic } = await import("./anthropic-provider");
+    return streamFromAnthropic(provider, system, messages, onText, options);
+  }
+  return streamFromProvider(provider, system, messages, onText, options);
 }
 
 /** The model this provider will be asked for next, for diagnostics. */

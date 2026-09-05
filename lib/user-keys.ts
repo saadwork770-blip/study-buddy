@@ -83,6 +83,14 @@ export const KEY_FIELDS: { id: string; label: string; ar: string; hint: string; 
     url: "https://console.groq.com/keys",
   },
   {
+    id: "anthropic",
+    label: "Claude",
+    ar: "Claude",
+    hint: "Paid, no free tier — billed per token. Used only after every free provider is spent.",
+    arHint: "مدفوع بلا باقة مجانية — يُحاسَب بالاستهلاك. لا يُستخدم إلا بعد نفاد كل المزوّدين المجانيين.",
+    url: "https://console.anthropic.com/settings/keys",
+  },
+  {
     id: "cerebras",
     label: "Cerebras",
     ar: "Cerebras",

@@ -14,6 +14,8 @@ export function useStream() {
   const [error, setError] = useState<string | null>(null);
   /** Which backup answered, when the primary could not. */
   const [servedBy, setServedBy] = useState<string | null>(null);
+  /** Which providers were tried when every one of them refused. */
+  const [attempts, setAttempts] = useState<{ provider: string; reason: string }[]>([]);
   const controller = useRef<AbortController | null>(null);
 
   const stop = useCallback(() => {
@@ -34,6 +36,7 @@ export function useStream() {
       setError(null);
       setStatus(null);
       setServedBy(null);
+      setAttempts([]);
       setRunning(true);
 
       let accumulated = "";
@@ -57,6 +60,9 @@ export function useStream() {
             // The server has no memory between requests; this browser does.
             case "cooldowns":
               mergeCooldowns(event.cooldowns);
+              break;
+            case "attempts":
+              setAttempts(event.attempts);
               break;
             case "served":
               setServedBy(event.provider);
@@ -88,5 +94,5 @@ export function useStream() {
     [],
   );
 
-  return { text, setText, status, sources, running, error, servedBy, run, stop };
+  return { text, setText, status, sources, running, error, servedBy, attempts, run, stop };
 }

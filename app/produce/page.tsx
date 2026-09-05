@@ -274,6 +274,7 @@ export default function ProducePage() {
             streaming={stream.running}
             status={stream.status}
             error={stream.error}
+            attempts={stream.attempts}
             onRetry={start}
           />
 

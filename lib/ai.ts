@@ -8,7 +8,7 @@ import {
   fallbackChain,
   isTextOnly,
   keyFor,
-  streamFromProvider,
+  streamFromAny,
 } from "./providers";
 import { type Cooldowns, cooldownFor, order, prune } from "./cooldown";
 
@@ -415,6 +415,9 @@ export async function streamTurn(
   /** What this turn learned about availability, sent back to the browser. */
   const learned: Cooldowns = {};
 
+  /** What was tried and how it went, so a failure can be explained. */
+  const attempts: { provider: string; reason: string }[] = [];
+
   const note = (id: string, err: unknown) => {
     const entry = cooldownFor(
       {
@@ -426,6 +429,18 @@ export async function streamTurn(
     );
     if (entry) learned[id] = entry;
   };
+
+  const record = (label: string, err: unknown) =>
+    attempts.push({
+      provider: label,
+      reason:
+        (err as { key?: string })?.key ??
+        cooldownFor({
+          status: (err as { status?: number })?.status,
+          message: String((err as { message?: string })?.message ?? ""),
+        })?.reason ??
+        "cool.busy",
+    });
 
   let stream: Awaited<ReturnType<typeof openStream>> | null = null;
   let lastError: unknown = keyError;
@@ -444,6 +459,7 @@ export async function streamTurn(
     } catch (err) {
       lastError = err;
       note("gemini", err);
+      record("Gemini", err);
     }
   }
 
@@ -455,6 +471,7 @@ export async function streamTurn(
     const chain = order(fallbackChain(opts.keys, opts.custom), cooldowns, now);
     if ((geminiReady && !canFallOver(err)) || !chain.length || !isTextOnly(opts.messages)) {
       emitCooldowns(emit, learned);
+      if (attempts.length) emit({ type: "attempts", attempts });
       throw err;
     }
     for (const provider of chain) {
@@ -463,7 +480,7 @@ export async function streamTurn(
           type: "status",
           label: opts.search ? "out.fallbackNoSearch" : "out.fallback",
         });
-        const answer = await streamFromProvider(
+        const answer = await streamFromAny(
           provider,
           opts.search
             ? `${opts.system}\n\nIMPORTANT: the web search tool is NOT available for this answer. Do not claim to have searched, and do not invent citations or URLs. Where a claim needs a source you were not given, write [مرجع مطلوب] / [citation needed].`
@@ -484,9 +501,13 @@ export async function streamTurn(
       } catch (fallbackError) {
         console.warn(`[study-buddy] fallback ${provider.id} failed:`, fallbackError);
         note(provider.id, fallbackError);
+        record(provider.label, fallbackError);
       }
     }
     emitCooldowns(emit, learned);
+    // Every provider refused. Saying only "Gemini is out of quota" reads as
+    // "it never switched"; naming each attempt shows that it did.
+    if (attempts.length) emit({ type: "attempts", attempts });
     throw err;
   }
 
@@ -609,7 +630,7 @@ export async function generateJson<T>(
         );
     for (const provider of chain) {
       try {
-        const answer = await streamFromProvider(
+        const answer = await streamFromAny(
           provider,
           `${system}\n\nReply with JSON only — no prose, no code fence — matching this schema:\n${JSON.stringify(schema)}`,
           [{ role: "user", parts: [{ text: prompt }] }],

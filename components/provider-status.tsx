@@ -13,7 +13,7 @@ import { safeBaseUrlClient } from "@/lib/safe-url";
 import type { Cooldowns } from "@/lib/cooldown";
 import type { TKey } from "@/lib/i18n";
 
-const BUILT_IN = ["gemini", "groq", "cerebras", "openrouter", "mistral", "github"];
+const BUILT_IN = ["gemini", "groq", "cerebras", "openrouter", "mistral", "github", "anthropic"];
 const LABELS: Record<string, string> = {
   gemini: "Gemini",
   groq: "Groq",
@@ -21,6 +21,7 @@ const LABELS: Record<string, string> = {
   openrouter: "OpenRouter",
   mistral: "Mistral",
   github: "GitHub Models",
+  anthropic: "Claude",
 };
 
 const blank: CustomProvider = { id: "", label: "", baseUrl: "", model: "", key: "" };

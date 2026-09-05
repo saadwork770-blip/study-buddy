@@ -19,6 +19,8 @@ interface Props {
   /** Translation key for the current activity, shown while streaming. */
   status?: string | null;
   error?: string | null;
+  /** Which providers were tried when they all refused. */
+  attempts?: { provider: string; reason: string }[];
   onRetry?: () => void;
 }
 
@@ -30,6 +32,7 @@ export function OutputPanel({
   streaming,
   status,
   error,
+  attempts,
   onRetry,
 }: Props) {
   const { t, lang } = useLang();
@@ -56,7 +59,18 @@ export function OutputPanel({
   if (error) {
     return (
       <div className="card">
-        <div className="alert alert-error">{t(error as TKey)}</div>
+        <div className="alert alert-error">
+          {t(error as TKey)}
+          {/* Shows that the rotation ran, and where it got stuck. */}
+          {attempts && attempts.length > 0 && (
+            <div className="tiny" style={{ marginTop: 8, opacity: 0.9 }}>
+              {t("out.tried")}:{" "}
+              {attempts
+                .map((a) => `${a.provider} (${t(a.reason as TKey)})`)
+                .join(" · ")}
+            </div>
+          )}
+        </div>
         {onRetry && (
           <button type="button" className="button button-ghost" onClick={onRetry}>
             {t("common.retry")}

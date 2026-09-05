@@ -12,6 +12,7 @@
     "check": "node scripts/check-key.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
     "@google/genai": "^2.21.0",
     "docx": "^9.7.1",
     "jszip": "^3.10.1",

@@ -90,6 +90,8 @@ export type StreamEvent =
   | { type: "served"; provider: string; model?: string }
   /** What this turn learned about who is out of allowance, for the browser to remember. */
   | { type: "cooldowns"; cooldowns: Record<string, { until: number; reason: string }> }
+  /** Every provider tried and why each refused, shown when they all did. */
+  | { type: "attempts"; attempts: { provider: string; reason: string }[] }
   | { type: "error"; message: string }
   | { type: "done" };
 

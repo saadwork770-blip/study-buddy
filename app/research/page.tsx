@@ -127,6 +127,7 @@ export default function ResearchPage() {
             streaming={stream.running}
             status={stream.status}
             error={stream.error}
+            attempts={stream.attempts}
             onRetry={start}
           />
           {!stream.text && !stream.running && !stream.error && (
