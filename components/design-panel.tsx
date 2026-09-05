@@ -1,7 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { useLang } from "./lang-provider";
-import { ACCENTS, FONTS, PRESETS, type DocTheme, presetTheme } from "@/lib/doc-theme";
+import {
+  ACCENTS,
+  FONTS,
+  PRESETS,
+  PRESET_GROUPS,
+  type DocTheme,
+  type PresetGroup,
+  fontById,
+  presetTheme,
+} from "@/lib/doc-theme";
 import type { TKey } from "@/lib/i18n";
 
 interface Props {
@@ -14,13 +24,31 @@ export function DesignPanel({ theme, onChange }: Props) {
   const { t, lang } = useLang();
   const ar = lang === "ar";
   const set = (patch: Partial<DocTheme>) => onChange({ ...theme, ...patch });
+  // The library is large enough that showing it all at once is worse than
+  // showing one shelf; open on the shelf the current theme belongs to.
+  const [group, setGroup] = useState<PresetGroup>(
+    PRESETS.find((preset) => preset.id === theme.preset)?.group ?? "academic",
+  );
+  const name = (id: string) => (ar ? fontById(id).ar : fontById(id).en);
 
   return (
     <div className="design">
       <section>
         <h3>{t("design.preset")}</h3>
+        <div className="segmented" style={{ marginBottom: 10, flexWrap: "wrap" }}>
+          {PRESET_GROUPS.map((shelf) => (
+            <button
+              key={shelf.id}
+              type="button"
+              aria-pressed={group === shelf.id}
+              onClick={() => setGroup(shelf.id)}
+            >
+              {ar ? shelf.ar : shelf.en}
+            </button>
+          ))}
+        </div>
         <div className="preset-grid">
-          {PRESETS.map((preset) => {
+          {PRESETS.filter((preset) => preset.group === group).map((preset) => {
             const active = theme.preset === preset.id;
             return (
               <button
@@ -36,7 +64,9 @@ export function DesignPanel({ theme, onChange }: Props) {
                 />
                 <strong>{ar ? preset.ar : preset.en}</strong>
                 <span className="tiny muted">
-                  {t(`design.preset.${preset.id}` as TKey)}
+                  {preset.theme.headingFont === preset.theme.bodyFont
+                    ? name(preset.theme.headingFont)
+                    : `${name(preset.theme.headingFont)} · ${name(preset.theme.bodyFont)}`}
                 </span>
               </button>
             );
@@ -78,10 +108,14 @@ export function DesignPanel({ theme, onChange }: Props) {
             value={theme.headingFont}
             onChange={(event) => set({ headingFont: event.target.value, preset: "custom" })}
           >
-            {FONTS.map((font) => (
-              <option key={font.id} value={font.id}>
-                {ar ? font.ar : font.en}
-              </option>
+            {["ar", "la"].map((script) => (
+              <optgroup key={script} label={script === "ar" ? (ar ? "عربي" : "Arabic") : (ar ? "لاتيني" : "Latin")}>
+                {FONTS.filter((font) => (font.script ?? "la") === script).map((font) => (
+                  <option key={font.id} value={font.id}>
+                    {ar ? font.ar : font.en}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
@@ -94,10 +128,16 @@ export function DesignPanel({ theme, onChange }: Props) {
           >
             {/* Display faces are left out: they are built for a heading at
                 30pt and are punishing to read in a paragraph. */}
-            {FONTS.filter((font) => font.role !== "heading").map((font) => (
-              <option key={font.id} value={font.id}>
-                {ar ? font.ar : font.en}
-              </option>
+            {["ar", "la"].map((script) => (
+              <optgroup key={script} label={script === "ar" ? (ar ? "عربي" : "Arabic") : (ar ? "لاتيني" : "Latin")}>
+                {FONTS.filter(
+                  (font) => font.role !== "heading" && (font.script ?? "la") === script,
+                ).map((font) => (
+                  <option key={font.id} value={font.id}>
+                    {ar ? font.ar : font.en}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
