@@ -176,6 +176,7 @@ const dict = {
     "out.fallback": "حصّة Gemini انتهت — أُكمل عبر مزوّد بديل…",
     "out.tried": "جُرّب",
     "error.refused": "رفض المزوّد هذا الطلب.",
+    "error.pinned": "هذا الطلب يحتاج Gemini تحديداً لأن الملف المرفق لا يمكن قراءته إلا منه (صورة، أو PDF نصّه غير قابل للاستخراج). انتظر إعادة ضبط الحصّة، أو أرفق الملف بصيغة Word أو نص.",
     "out.fallbackNoSearch": "حصّة Gemini انتهت — أُكمل عبر مزوّد بديل بلا بحث في الويب، فتحقّق من المراجع بنفسك.",
 
     "common.cancel": "إلغاء",
@@ -565,6 +566,7 @@ const dict = {
     "out.fallback": "Gemini quota is spent — continuing on a backup provider…",
     "out.tried": "Tried",
     "error.refused": "The provider declined this request.",
+    "error.pinned": "This request needs Gemini specifically: the attached file can only be read by it (an image, or a PDF whose text cannot be extracted). Wait for the quota to reset, or attach the file as Word or plain text.",
     "out.fallbackNoSearch": "Gemini quota is spent — continuing on a backup provider without web search, so verify any sources yourself.",
 
     "common.cancel": "Cancel",

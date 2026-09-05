@@ -176,7 +176,20 @@ async function pdfText(file: File): Promise<string> {
       if (line) pages.push(line);
     }
     await task.destroy();
-    return pages.join("\n\n");
+    const text = pages.join("\n\n");
+
+    // Some producers store Arabic as visual-order presentation glyphs rather
+    // than logical Unicode. That extracts as reversed, unspaced text: useless
+    // to a reader, and — worse — plausible enough that a model would
+    // summarise the nonsense confidently. Repairing it properly needs the
+    // bidi algorithm plus word-boundary reconstruction and still gets it
+    // wrong often, so such text is discarded. The turn then stays with
+    // Gemini, which reads the real file correctly, and says so if it cannot.
+    if (/[\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text)) {
+      console.warn("[study-buddy] pdf text is visual-order glyphs; not portable");
+      return "";
+    }
+    return text;
   } catch (err) {
     console.warn("[study-buddy] pdf text extraction failed:", err);
     return "";

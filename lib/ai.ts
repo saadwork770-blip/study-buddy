@@ -512,6 +512,13 @@ export async function streamTurn(
     if ((geminiReady && !canFallOver(err)) || !chain.length || !portable) {
       emitCooldowns(emit, learned);
       if (attempts.length) emit({ type: "attempts", attempts });
+      // Say which of the two it is: nothing left to try, or a file only
+      // Gemini can read. "Quota spent" alone reads as "it never switched".
+      if (!portable && chain.length && canFallOver(err)) {
+        throw Object.assign(new Error("attachment pins this turn to gemini"), {
+          key: "error.pinned",
+        });
+      }
       throw err;
     }
     const messages = isTextOnly(opts.messages)
