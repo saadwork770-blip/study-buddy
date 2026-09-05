@@ -1,4 +1,4 @@
-import { EFFORT, MODEL, MODEL_FALLBACKS, errorKey, getClient } from "@/lib/ai";
+import { EFFORT, MODEL, MODEL_FALLBACKS, errorKey, geminiKey, getClient } from "@/lib/ai";
 import { configuredProviders, currentModel, streamFromProvider } from "@/lib/providers";
 
 export const runtime = "nodejs";
@@ -20,8 +20,7 @@ const isExhausted = (err: unknown) =>
  * the app is happily serving from a sibling would be a lie.
  */
 async function check(keys?: Record<string, string>) {
-  const hasKey =
-    process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || keys?.gemini?.trim();
+  const hasKey = geminiKey(keys);
   const backups = configuredProviders(keys).map((provider) => provider.label);
 
   if (!hasKey) {

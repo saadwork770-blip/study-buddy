@@ -37,10 +37,22 @@ export class MissingKeyError extends Error {
   }
 }
 
+/**
+ * The Gemini key for a request. The student's own comes first on purpose:
+ * they only ever open the settings page because something is broken, and a
+ * key deployed with the site that has expired or been revoked must not keep
+ * winning over the fresh one they just pasted in to fix it.
+ */
+export function geminiKey(userKeys?: UserKeys): string | undefined {
+  return (
+    userKeys?.gemini?.trim() ||
+    process.env.GEMINI_API_KEY?.trim() ||
+    process.env.GOOGLE_API_KEY?.trim()
+  );
+}
+
 export function getClient(userKeys?: UserKeys): GoogleGenAI {
-  // A key deployed with the site wins; the student's own fills the gap.
-  const apiKey =
-    process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || userKeys?.gemini?.trim();
+  const apiKey = geminiKey(userKeys);
   // Checked here so the student sees a useful message instead of a raw 400.
   if (!apiKey) throw new MissingKeyError();
   // GEMINI_BASE_URL lets the endpoint be pointed at a proxy or a test double.

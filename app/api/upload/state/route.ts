@@ -1,4 +1,4 @@
-import { MissingKeyError, errorKey } from "@/lib/ai";
+import { MissingKeyError, errorKey, geminiKey } from "@/lib/ai";
 
 export const runtime = "nodejs";
 
@@ -17,8 +17,7 @@ export async function POST(request: Request) {
       keys?: Record<string, string>;
     };
 
-    const key =
-      process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || keys?.gemini?.trim();
+    const key = geminiKey(keys);
     if (!key) throw new MissingKeyError();
 
     if (!name?.startsWith("files/")) {

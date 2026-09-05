@@ -335,7 +335,7 @@ const dict = {
     "settings.works": "يعمل",
     "settings.degraded": "النموذج الأساسي مستهلك، ويعمل على نموذج بديل",
     "settings.upload": "فحص رفع الملفات",
-    "settings.privacy": "تُخزَّن المفاتيح في هذا المتصفح وحده، ولا تُحفظ على الخادم. امسحها بالزر ✕ في أي وقت. إن كان الموقع منشوراً بمفتاح في Vercel فهو الأسبق، وما تضيفه هنا يُستخدم كاحتياطي.",
+    "settings.privacy": "تُخزَّن المفاتيح في هذا المتصفح وحده، ولا تُحفظ على الخادم. امسحها بالزر ✕ في أي وقت. ما تضيفه هنا هو الأسبق: إن كان الموقع منشوراً بمفتاح قديم أو منتهي الصلاحية، فمفتاحك هنا يتجاوزه.",
 
     "error.noKey":
       "المفتاح مفقود أو رُفض (قد تكون صلاحيته انتهت). افتح صفحة «الإعدادات» والصق مفتاح Gemini مجاني من aistudio.google.com/apikey — تأكّد أنه يبدأ بـ AIza، فرموز AQ. المؤقّتة تنتهي بعد مدة قصيرة.",
@@ -677,7 +677,7 @@ const dict = {
     "settings.works": "Working",
     "settings.degraded": "primary model spent, running on a sibling",
     "settings.upload": "Upload diagnostics",
-    "settings.privacy": "Keys are kept in this browser only and are never stored on the server. Clear one any time with ✕. A key deployed with the site takes precedence; anything you add here is used as backup.",
+    "settings.privacy": "Keys are kept in this browser only and are never stored on the server. Clear one any time with ✕. What you add here wins: if the site was deployed with an old or expired key, yours overrides it.",
 
     "error.noKey":
       "The key is missing or was rejected — it may have expired. Open the Settings page and paste a free Gemini key from aistudio.google.com/apikey. Check it starts with AIza: the AQ. tokens are short-lived and stop working.",

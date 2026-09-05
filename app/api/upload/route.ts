@@ -1,4 +1,4 @@
-import { MissingKeyError, errorKey } from "@/lib/ai";
+import { MissingKeyError, errorKey, geminiKey } from "@/lib/ai";
 
 export const runtime = "nodejs";
 
@@ -12,15 +12,13 @@ export const runtime = "nodejs";
  */
 export async function POST(request: Request) {
   try {
-    const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-
     const { name, mimeType, size, keys } = (await request.json()) as {
       name: string;
       mimeType: string;
       size: number;
       keys?: Record<string, string>;
     };
-    const uploadKey = key || keys?.gemini?.trim();
+    const uploadKey = geminiKey(keys);
 
     if (!uploadKey) throw new MissingKeyError();
     if (!mimeType || !Number.isFinite(size) || size <= 0) {
