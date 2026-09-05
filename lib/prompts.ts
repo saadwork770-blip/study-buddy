@@ -125,6 +125,8 @@ export const ROLE = {
     "Right now you are breaking a course deliverable into a realistic, scheduled plan of work.",
   produce:
     "Right now you are writing a finished piece of academic work for the student, to their specification.",
+  deck:
+    "Right now you are designing a presentation: deciding what each slide should say and what shape it should take.",
 } as const;
 
 export function chatModePrompt(mode: string): string {

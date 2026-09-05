@@ -6,10 +6,12 @@ import { withKeys } from "@/lib/user-keys";
 import { OutputPanel } from "@/components/output-panel";
 import { ExpertPicker } from "@/components/expert-picker";
 import { FileAttach } from "@/components/file-attach";
+import { DeckView } from "@/components/deck-view";
 import { useStream } from "@/lib/use-stream";
 import type { TKey } from "@/lib/i18n";
 import type { Attachment } from "@/lib/types";
 import type { CiteStyle, Reference } from "@/lib/citations";
+import type { Deck } from "@/lib/deck";
 import { CITE_STYLES } from "@/lib/citations";
 
 const KINDS: { value: string; label: TKey }[] = [
@@ -49,14 +51,51 @@ export default function ProducePage() {
   const [files, setFiles] = useState<Attachment[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
   const [citeStyle, setCiteStyle] = useState<CiteStyle>("apa7");
+  const [slideCount, setSlideCount] = useState(10);
+  const [deck, setDeck] = useState<Deck | null>(null);
+  const [designing, setDesigning] = useState(false);
+
+  /** Slides take the deck designer; everything else streams Markdown. */
+  const designDeck = async () => {
+    setDesigning(true);
+    setDeck(null);
+    setLocalError(null);
+    try {
+      const response = await fetch("/api/deck", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          withKeys({
+            brief,
+            course,
+            lang,
+            slides: slideCount,
+            expert,
+            attachments: files,
+          }),
+        ),
+      });
+      const payload = (await response.json()) as { deck?: Deck; error?: string };
+      if (payload.deck) setDeck(payload.deck);
+      else setLocalError(payload.error ?? "error.generic");
+    } catch {
+      setLocalError("error.generic");
+    } finally {
+      setDesigning(false);
+    }
+  };
 
   const start = () => {
-    if (stream.running) return;
+    if (stream.running || designing) return;
     if (!brief.trim() && !files.length) {
       setLocalError("produce.need");
       return;
     }
     setLocalError(null);
+    if (kind === "slides") {
+      void designDeck();
+      return;
+    }
     void stream.run("/api/produce", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -128,6 +167,22 @@ export default function ProducePage() {
             </select>
           </div>
 
+          {kind === "slides" && (
+            <div className="field">
+              <label htmlFor="slidecount">
+                {t("deck.slides")} <span className="hint">({slideCount})</span>
+              </label>
+              <input
+                id="slidecount"
+                type="range"
+                min={4}
+                max={20}
+                value={slideCount}
+                onChange={(event) => setSlideCount(Number(event.target.value))}
+              />
+            </div>
+          )}
+
           {kind !== "slides" && (
             <div className="field">
               <label>{t("produce.length")}</label>
@@ -146,6 +201,7 @@ export default function ProducePage() {
             </div>
           )}
 
+          {kind !== "slides" && (
           <div className="field">
             <label>{t("ref.style")}</label>
             <div className="segmented">
@@ -161,6 +217,7 @@ export default function ProducePage() {
               ))}
             </div>
           </div>
+          )}
 
           <ExpertPicker value={expert} onChange={setExpert} />
 
@@ -178,8 +235,16 @@ export default function ProducePage() {
           {localError && <div className="alert alert-error">{t(localError as TKey)}</div>}
 
           <div className="row">
-            <button type="submit" className="button" disabled={stream.running}>
-              {stream.running ? t("produce.running") : t("produce.run")}
+            <button
+              type="submit"
+              className="button"
+              disabled={stream.running || designing}
+            >
+              {designing
+                ? t("deck.designing")
+                : stream.running
+                  ? t("produce.running")
+                  : t("produce.run")}
             </button>
             {stream.running && (
               <button type="button" className="button button-ghost" onClick={stream.stop}>
@@ -190,10 +255,17 @@ export default function ProducePage() {
         </form>
 
         <div>
-          {kind === "slides" && !stream.text && (
-            <div className="alert alert-info">{t("produce.slidesHint")}</div>
-          )}
-
+          {kind === "slides" ? (
+            <>
+              {!deck && !designing && (
+                <div className="alert alert-info">{t("deck.subtitle")}</div>
+              )}
+              {designing && <div className="empty-state">{t("deck.designing")}</div>}
+              {localError && <div className="alert alert-error">{t(localError as TKey)}</div>}
+              {deck && <DeckView deck={deck} />}
+            </>
+          ) : (
+            <>
           <OutputPanel
             kind="summary"
             title={title}
@@ -213,6 +285,8 @@ export default function ProducePage() {
 
           {!stream.text && !stream.running && !stream.error && (
             <div className="empty-state">{t("produce.subtitle")}</div>
+          )}
+            </>
           )}
         </div>
       </div>

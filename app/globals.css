@@ -99,6 +99,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
   align-items: start;
 }
 
+/* A grid track's automatic minimum is its content, so one wide child (a
+   scaled slide preview, a long code line) would otherwise stretch the column
+   and push the page sideways. */
+.split > * { min-width: 0; }
+
 @media (max-width: 900px) {
   .split { grid-template-columns: 1fr; }
 }
