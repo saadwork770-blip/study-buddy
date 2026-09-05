@@ -9,6 +9,7 @@ interface Probe {
   ok: boolean;
   model?: string;
   degraded?: boolean;
+  source?: "typed" | "deployed" | "none";
   reason?: string;
   detail?: string;
   probed?: {
@@ -140,11 +141,21 @@ export default function SettingsPage() {
                 id: "gemini",
                 label: "Gemini",
                 ok: result.ok,
-                note: result.ok
-                  ? [result.model, result.degraded ? t("settings.degraded") : ""]
-                      .filter(Boolean)
-                      .join(" · ")
-                  : t((result.reason ?? "error.generic") as TKey),
+                note: [
+                  result.ok
+                    ? result.model
+                    : t((result.reason ?? "error.generic") as TKey),
+                  result.ok && result.degraded ? t("settings.degraded") : "",
+                  // Says outright whose key answered, so a stale key set in
+                  // the host's dashboard cannot masquerade as this one.
+                  result.source === "typed"
+                    ? t("settings.srcTyped")
+                    : result.source === "deployed"
+                      ? t("settings.srcDeployed")
+                      : "",
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
               },
               ...(result.probed ?? []).map((provider) => ({
                 id: provider.id,

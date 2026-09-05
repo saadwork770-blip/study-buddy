@@ -21,6 +21,13 @@ const isExhausted = (err: unknown) =>
  */
 async function check(keys?: Record<string, string>) {
   const hasKey = geminiKey(keys);
+  // Names which of the two keys is actually in play. Not knowing this is
+  // what made a stale Vercel variable so hard to spot from the outside.
+  const source = keys?.gemini?.trim()
+    ? "typed"
+    : process.env.GEMINI_API_KEY?.trim() || process.env.GOOGLE_API_KEY?.trim()
+      ? "deployed"
+      : "none";
   const backups = configuredProviders(keys).map((provider) => provider.label);
 
   if (!hasKey) {
@@ -29,6 +36,7 @@ async function check(keys?: Record<string, string>) {
     return Response.json({
       ok: false,
       reason: backups.length ? "error.noKeyPartial" : "error.noKey",
+      source,
       fallbacks: backups,
     });
   }
@@ -46,6 +54,7 @@ async function check(keys?: Record<string, string>) {
       return Response.json({
         ok: true,
         model,
+        source,
         // Says so plainly when the primary is spent but the app still works.
         degraded: model !== MODEL,
         effort: EFFORT,
@@ -62,6 +71,7 @@ async function check(keys?: Record<string, string>) {
   return Response.json({
     ok: false,
     reason: errorKey(lastError),
+    source,
     detail: lastError instanceof Error ? lastError.message : String(lastError),
     fallbacks: backups,
   });

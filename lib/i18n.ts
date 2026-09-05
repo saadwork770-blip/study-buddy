@@ -334,6 +334,8 @@ const dict = {
     "settings.verifying": "جارٍ التحقّق…",
     "settings.works": "يعمل",
     "settings.degraded": "النموذج الأساسي مستهلك، ويعمل على نموذج بديل",
+    "settings.srcTyped": "يستخدم المفتاح الذي أدخلته هنا",
+    "settings.srcDeployed": "يستخدم المفتاح المضبوط في Vercel، لا الذي هنا",
     "settings.upload": "فحص رفع الملفات",
     "settings.privacy": "تُخزَّن المفاتيح في هذا المتصفح وحده، ولا تُحفظ على الخادم. امسحها بالزر ✕ في أي وقت. ما تضيفه هنا هو الأسبق: إن كان الموقع منشوراً بمفتاح قديم أو منتهي الصلاحية، فمفتاحك هنا يتجاوزه.",
 
@@ -676,6 +678,8 @@ const dict = {
     "settings.verifying": "Checking…",
     "settings.works": "Working",
     "settings.degraded": "primary model spent, running on a sibling",
+    "settings.srcTyped": "using the key you entered here",
+    "settings.srcDeployed": "using the key set in Vercel, not this one",
     "settings.upload": "Upload diagnostics",
     "settings.privacy": "Keys are kept in this browser only and are never stored on the server. Clear one any time with ✕. What you add here wins: if the site was deployed with an old or expired key, yours overrides it.",
 
