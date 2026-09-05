@@ -114,6 +114,8 @@ async function toGoogle(file: File, onProgress?: (pct: number) => void): Promise
     mimeType: uploaded.file?.mimeType || mimeType,
     size: file.size,
     fileUri: uri,
+    // Both: Gemini reads the file, everyone else reads this.
+    text: mimeType === "application/pdf" ? await pdfText(file) : undefined,
   };
 }
 
@@ -135,6 +137,50 @@ async function waitForActive(name: string) {
     }
   }
   // Still processing after ~30s: let the request try anyway.
+}
+
+/**
+ * Reads a PDF's text in the browser, alongside sending the file itself to
+ * Google.
+ *
+ * This is what lets a document survive a provider switch. Gemini reads the
+ * real PDF — layout, tables, scanned pages — and does it better. But no
+ * backup provider can read a file held by Google, so without a text copy
+ * travelling with the request, every turn carrying an attachment was locked
+ * to Gemini and failed outright once its quota was spent. That is most of
+ * the work this app is actually used for.
+ *
+ * Failure here is not fatal: the upload still works, the turn simply cannot
+ * fall back.
+ */
+async function pdfText(file: File): Promise<string> {
+  try {
+    const pdfjs = await import("pdfjs-dist");
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+      "pdfjs-dist/build/pdf.worker.min.mjs",
+      import.meta.url,
+    ).toString();
+
+    const task = pdfjs.getDocument({ data: await file.arrayBuffer() });
+    const doc = await task.promise;
+    const pages: string[] = [];
+    // Enough for the model to work from without holding a whole book in memory.
+    const limit = Math.min(doc.numPages, 80);
+    for (let n = 1; n <= limit; n++) {
+      const content = await (await doc.getPage(n)).getTextContent();
+      const line = content.items
+        .map((item) => ("str" in item ? item.str : ""))
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (line) pages.push(line);
+    }
+    await task.destroy();
+    return pages.join("\n\n");
+  } catch (err) {
+    console.warn("[study-buddy] pdf text extraction failed:", err);
+    return "";
+  }
 }
 
 /** Office XML files are zips; pull the readable text straight out of them. */

@@ -185,6 +185,35 @@ export function attachmentParts(attachments: Attachment[] | undefined): AiPart[]
   });
 }
 
+/** The attachment text a backup provider can read, when there is any. */
+export function attachmentTextParts(attachments: Attachment[] | undefined): AiPart[] {
+  return (attachments ?? [])
+    .filter((file) => file.text?.trim())
+    .map((file) => ({ text: `--- ${file.name} ---\n${file.text}` }));
+}
+
+/** True when every attachment carries text, so the turn can leave Gemini. */
+export const attachmentsPortable = (attachments: Attachment[] | undefined): boolean =>
+  (attachments ?? []).every((file) => Boolean(file.text?.trim()));
+
+/**
+ * Rewrites a turn so a provider that cannot read Google-hosted files can
+ * still answer it: each file part is replaced by the text read from that
+ * file in the browser. Gemini keeps the real file; everyone else gets this.
+ */
+function asTextOnly(messages: AiMessage[], attachments: Attachment[] | undefined): AiMessage[] {
+  let replaced = false;
+  return messages.map((message) => {
+    if (message.parts.every((part) => "text" in part)) return message;
+    const texts = replaced ? [] : attachmentTextParts(attachments);
+    replaced = true;
+    return {
+      role: message.role,
+      parts: [...texts, ...message.parts.filter((part) => "text" in part)],
+    };
+  });
+}
+
 type Emit = (event: StreamEvent) => void;
 
 const isCoolingId = (cooldowns: Cooldowns, id: string, now: number) =>
@@ -373,6 +402,11 @@ export interface StreamOptions {
   cooldowns?: Cooldowns;
   /** Providers the student added themselves. */
   custom?: CustomProvider[];
+  /**
+   * The files behind any file parts in `messages`. Supplying these is what
+   * lets a turn with an attachment survive a provider switch.
+   */
+  attachments?: Attachment[];
 }
 
 /**
@@ -469,11 +503,20 @@ export async function streamTurn(
     // held by Google. A web search can — losing the grounding is a smaller
     // loss than losing the answer, so the turn goes ahead and says so.
     const chain = order(fallbackChain(opts.keys, opts.custom), cooldowns, now);
-    if ((geminiReady && !canFallOver(err)) || !chain.length || !isTextOnly(opts.messages)) {
+    // A turn carrying files can still move, as long as we read them in the
+    // browser. Only a file we have no text for — an image, a scanned PDF —
+    // genuinely pins the turn to Gemini.
+    const portable =
+      isTextOnly(opts.messages) ||
+      (Boolean(opts.attachments?.length) && attachmentsPortable(opts.attachments));
+    if ((geminiReady && !canFallOver(err)) || !chain.length || !portable) {
       emitCooldowns(emit, learned);
       if (attempts.length) emit({ type: "attempts", attempts });
       throw err;
     }
+    const messages = isTextOnly(opts.messages)
+      ? opts.messages
+      : asTextOnly(opts.messages, opts.attachments);
     for (const provider of chain) {
       try {
         emit({
@@ -485,7 +528,7 @@ export async function streamTurn(
           opts.search
             ? `${opts.system}\n\nIMPORTANT: the web search tool is NOT available for this answer. Do not claim to have searched, and do not invent citations or URLs. Where a claim needs a source you were not given, write [مرجع مطلوب] / [citation needed].`
             : opts.system,
-          opts.messages,
+          messages,
           (delta) => emit({ type: "text", text: delta }),
           {
             maxTokens: Math.min(opts.maxTokens ?? 8192, 8192),

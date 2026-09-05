@@ -74,6 +74,7 @@ export async function POST(request: Request) {
       keys: body.keys,
       cooldowns: body.cooldowns,
       custom: body.custom,
+      attachments: body.attachments,
     });
     if (sources.length) emit({ type: "sources", sources });
   });
