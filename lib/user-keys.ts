@@ -19,8 +19,8 @@ export const KEY_FIELDS: { id: string; label: string; ar: string; hint: string; 
     id: "gemini",
     label: "Gemini",
     ar: "Gemini",
-    hint: "The main provider. Leave empty to use the one deployed with the site.",
-    arHint: "المزوّد الأساسي. اتركه فارغاً لاستخدام المفتاح المنشور مع الموقع.",
+    hint: "The main provider — needed for file uploads and web search. A real key starts with AIza; the short-lived AQ. tokens AI Studio also hands out expire.",
+    arHint: "المزوّد الأساسي — لازم لرفع الملفات والبحث في الويب. المفتاح الصحيح يبدأ بـ AIza؛ أمّا رموز AQ. المؤقّتة فتنتهي صلاحيتها.",
     url: "https://aistudio.google.com/apikey",
   },
   {

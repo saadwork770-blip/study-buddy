@@ -338,7 +338,7 @@ const dict = {
     "settings.privacy": "تُخزَّن المفاتيح في هذا المتصفح وحده، ولا تُحفظ على الخادم. امسحها بالزر ✕ في أي وقت. إن كان الموقع منشوراً بمفتاح في Vercel فهو الأسبق، وما تضيفه هنا يُستخدم كاحتياطي.",
 
     "error.noKey":
-      "لا يوجد مفتاح صالح. أسرع حلّ: افتح صفحة «الإعدادات» في هذا الموقع والصق مفتاح Gemini مجاني من aistudio.google.com/apikey — بلا نشر ولا انتظار. (أو اضبط GEMINI_API_KEY في Vercel إن كنت تفضّل ذلك.)",
+      "المفتاح مفقود أو رُفض (قد تكون صلاحيته انتهت). افتح صفحة «الإعدادات» والصق مفتاح Gemini مجاني من aistudio.google.com/apikey — تأكّد أنه يبدأ بـ AIza، فرموز AQ. المؤقّتة تنتهي بعد مدة قصيرة.",
     "error.noKeyPartial":
       "لا يوجد مفتاح Gemini، لكن لديك مزوّداً احتياطياً. المحادثة والتلخيص وكتابة الوثائق تعمل؛ أمّا رفع الملفات والبحث في الويب فيحتاجان مفتاح Gemini من صفحة «الإعدادات».",
     "error.rate": "انتهت حصّتك اليومية المجانية من Gemini لهذا النموذج. جرّبتُ النماذج البديلة وكلّها مستهلكة. الحلّ: افتح صفحة «الإعدادات» والصق مفتاح Groq مجاني من console.groq.com/keys — يستغرق دقيقة، أو انتظر إعادة ضبط الحصّة.",
@@ -680,7 +680,7 @@ const dict = {
     "settings.privacy": "Keys are kept in this browser only and are never stored on the server. Clear one any time with ✕. A key deployed with the site takes precedence; anything you add here is used as backup.",
 
     "error.noKey":
-      "No working key. Fastest fix: open this site's Settings page and paste a free Gemini key from aistudio.google.com/apikey — no deploy, no waiting. (Or set GEMINI_API_KEY in Vercel if you prefer.)",
+      "The key is missing or was rejected — it may have expired. Open the Settings page and paste a free Gemini key from aistudio.google.com/apikey. Check it starts with AIza: the AQ. tokens are short-lived and stop working.",
     "error.noKeyPartial":
       "No Gemini key, but you do have a backup provider. Chat, summaries and document drafting work; file uploads and web search need a Gemini key from the Settings page.",
     "error.rate": "Your daily free Gemini quota for this model is used up. I tried the sibling models and they are spent too. Fix: open the Settings page and paste a free Groq key from console.groq.com/keys — it takes a minute — or wait for the quota to reset.",

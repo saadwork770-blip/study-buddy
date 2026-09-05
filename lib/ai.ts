@@ -98,11 +98,28 @@ function isTransient(err: unknown): boolean {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Out of quota, rather than a transient blip — worth switching provider. */
+/** Out of quota, rather than a transient blip — worth switching model. */
 function isExhausted(err: unknown): boolean {
   const status = (err as { status?: number })?.status;
   const message = String((err as { message?: string })?.message ?? "");
   return status === 429 || /quota|RESOURCE_EXHAUSTED|rate limit/i.test(message);
+}
+
+/**
+ * Whether a backup provider should be given the turn.
+ *
+ * Anything that stops Gemini serving the request qualifies, not just a spent
+ * quota: an expired or revoked key, an overloaded backend, a network failure.
+ * Treating only quota as fallback-worthy meant a dead key took the whole site
+ * down while three working backup providers sat unused.
+ */
+function canFallOver(err: unknown): boolean {
+  if (err instanceof MissingKeyError) return true;
+  const status = (err as { status?: number })?.status;
+  if (status && [401, 403, 429, 500, 502, 503, 504].includes(status)) return true;
+  return /quota|RESOURCE_EXHAUSTED|rate limit|API[_ ]?KEY|UNAUTHENTICATED|PERMISSION_DENIED|overloaded|UNAVAILABLE|fetch failed|ECONNRESET/i.test(
+    String((err as { message?: string })?.message ?? ""),
+  );
 }
 
 /**
@@ -183,12 +200,21 @@ export async function streamTurn(
   emit: Emit,
   opts: StreamOptions,
 ): Promise<{ text: string; sources: Source[] }> {
-  const ai = getClient(opts.keys);
+  // Not fatal on its own: with no Gemini key at all, a configured backup
+  // provider can still answer a plain text turn, so the failure is carried
+  // to the fallback below rather than thrown here.
+  let ai: GoogleGenAI | null = null;
+  let keyError: unknown;
+  try {
+    ai = getClient(opts.keys);
+  } catch (err) {
+    keyError = err;
+  }
 
   const openStream = (model: string) =>
     withRetry(
       () =>
-        ai.models.generateContentStream({
+        ai!.models.generateContentStream({
         model,
         contents: opts.messages,
         config: {
@@ -202,10 +228,10 @@ export async function streamTurn(
     );
 
   let stream: Awaited<ReturnType<typeof openStream>> | null = null;
-  let lastError: unknown;
+  let lastError: unknown = keyError;
 
   // Primary model, then its siblings — each has its own daily allowance.
-  for (const model of [MODEL, ...MODEL_FALLBACKS]) {
+  for (const model of ai ? [MODEL, ...MODEL_FALLBACKS] : []) {
     try {
       stream = await openStream(model);
       if (model !== MODEL) {
@@ -214,16 +240,18 @@ export async function streamTurn(
       break;
     } catch (err) {
       lastError = err;
+      // Quota is counted per model, so a sibling may still have room. Any
+      // other failure — a dead key above all — applies to all of them.
       if (!isExhausted(err)) break;
     }
   }
 
   if (!stream) {
     const err = lastError;
-    // Primary is out of quota: hand the turn to a fallback provider, but only
-    // when nothing about it depends on Gemini specifically.
+    // Gemini cannot serve this turn — hand it to a backup provider, but only
+    // when nothing about the request depends on Gemini specifically.
     const chain = fallbackChain(opts.keys);
-    if (!isExhausted(err) || !chain.length || opts.search || !isTextOnly(opts.messages)) {
+    if (!canFallOver(err) || !chain.length || opts.search || !isTextOnly(opts.messages)) {
       throw err;
     }
     for (const provider of chain) {
@@ -295,11 +323,17 @@ export async function generateJson<T>(
   extraParts: AiPart[] = [],
   keys?: UserKeys,
 ): Promise<T | null> {
-  const ai = getClient(keys);
+  let ai: GoogleGenAI | null = null;
+  let keyError: unknown;
+  try {
+    ai = getClient(keys);
+  } catch (err) {
+    keyError = err;
+  }
 
   const attempt = (model: string) =>
     withRetry(() =>
-      ai.models.generateContent({
+      ai!.models.generateContent({
         model,
         contents: [{ role: "user", parts: [...extraParts, { text: prompt }] }],
         config: {
@@ -314,23 +348,58 @@ export async function generateJson<T>(
 
   // Same per-model quota walk as the streaming path.
   let response: Awaited<ReturnType<typeof attempt>> | null = null;
-  let lastError: unknown;
-  for (const model of [MODEL, ...MODEL_FALLBACKS]) {
+  let lastError: unknown = keyError;
+  for (const model of ai ? [MODEL, ...MODEL_FALLBACKS] : []) {
     try {
       response = await attempt(model);
       break;
     } catch (err) {
       lastError = err;
-      if (!isExhausted(err)) throw err;
+      if (!canFallOver(err)) throw err;
+      // As above: only a spent per-model quota is worth another model.
+      if (!isExhausted(err)) break;
     }
   }
-  if (!response) throw lastError;
 
-  const text = response.text;
-  if (!text) return null;
+  if (!response) {
+    // Plan and task-card generation would otherwise die with Gemini, even
+    // with working backups. They cannot take a Gemini-side response schema,
+    // so the shape is asked for in the prompt and validated by the parse.
+    const chain = extraParts.length ? [] : fallbackChain(keys);
+    for (const provider of chain) {
+      try {
+        const answer = await streamFromProvider(
+          provider,
+          `${system}\n\nReply with JSON only — no prose, no code fence — matching this schema:\n${JSON.stringify(schema)}`,
+          [{ role: "user", parts: [{ text: prompt }] }],
+          () => {},
+          { maxTokens: 8192, json: true, userKeys: keys },
+        );
+        const parsed = parseJson<T>(answer);
+        if (parsed) return parsed;
+      } catch (err) {
+        console.warn(`[study-buddy] json fallback ${provider.id} failed:`, err);
+      }
+    }
+    throw lastError;
+  }
+
+  return response.text ? parseJson<T>(response.text) : null;
+}
+
+/** Tolerates a model that wrapped its JSON in prose or a code fence. */
+function parseJson<T>(text: string): T | null {
+  const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/, "");
   try {
-    return JSON.parse(text) as T;
+    return JSON.parse(cleaned) as T;
   } catch {
-    return null;
+    const start = cleaned.search(/[[{]/);
+    const end = Math.max(cleaned.lastIndexOf("]"), cleaned.lastIndexOf("}"));
+    if (start === -1 || end <= start) return null;
+    try {
+      return JSON.parse(cleaned.slice(start, end + 1)) as T;
+    } catch {
+      return null;
+    }
   }
 }
