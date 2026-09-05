@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { readNdjson } from "./stream";
+import { mergeCooldowns } from "./user-keys";
 import type { Source } from "./types";
 
 /** Drives one streaming request: accumulated text, status, sources, errors. */
@@ -11,6 +12,8 @@ export function useStream() {
   const [sources, setSources] = useState<Source[]>([]);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Which backup answered, when the primary could not. */
+  const [servedBy, setServedBy] = useState<string | null>(null);
   const controller = useRef<AbortController | null>(null);
 
   const stop = useCallback(() => {
@@ -30,6 +33,7 @@ export function useStream() {
       setSources([]);
       setError(null);
       setStatus(null);
+      setServedBy(null);
       setRunning(true);
 
       let accumulated = "";
@@ -49,6 +53,13 @@ export function useStream() {
               break;
             case "status":
               setStatus(event.label);
+              break;
+            // The server has no memory between requests; this browser does.
+            case "cooldowns":
+              mergeCooldowns(event.cooldowns);
+              break;
+            case "served":
+              setServedBy(event.provider);
               break;
             case "sources":
               setSources(event.sources);
@@ -77,5 +88,5 @@ export function useStream() {
     [],
   );
 
-  return { text, setText, status, sources, running, error, run, stop };
+  return { text, setText, status, sources, running, error, servedBy, run, stop };
 }

@@ -91,21 +91,92 @@ export const PROVIDERS: Provider[] = [
 /** Keys the student pasted into the site, sent with the request. */
 export type UserKeys = Record<string, string>;
 
+/**
+ * A provider the student added themselves, so a free service that appears
+ * next year can be used without waiting for a release. Anything speaking the
+ * OpenAI `/chat/completions` shape works.
+ */
+export interface CustomProvider {
+  id: string;
+  label: string;
+  baseUrl: string;
+  model?: string;
+  key: string;
+}
+
+/**
+ * The server is about to fetch a URL the browser chose, so the URL has to be
+ * treated as hostile: without this it is a hole through which anything on the
+ * deployment's private network could be reached. Public HTTPS only.
+ */
+export function safeBaseUrl(raw: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:") return null;
+
+  const host = url.hostname.toLowerCase();
+  if (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".internal") ||
+    host.endsWith(".local") ||
+    // Bare IPv4/IPv6 literals: a hostname is expected, and an address is how
+    // the loopback and metadata endpoints are usually reached.
+    /^\[?[0-9a-f:]*\]?$/i.test(host) ||
+    /^\d{1,3}(\.\d{1,3}){3}$/.test(host)
+  ) {
+    return null;
+  }
+  return url.origin + url.pathname.replace(/\/+$/, "");
+}
+
+/** Turns the student's entries into providers, dropping anything unusable. */
+export function customProviders(list: CustomProvider[] | undefined): Provider[] {
+  return (list ?? [])
+    .map((entry): Provider | null => {
+      const baseUrl = safeBaseUrl(entry.baseUrl ?? "");
+      const id = String(entry.id ?? "").trim();
+      if (!baseUrl || !id || !entry.key?.trim()) return null;
+      return {
+        id: `custom:${id}`,
+        label: entry.label?.trim() || id,
+        envKey: "",
+        baseUrl,
+        defaultModel: entry.model?.trim() || "",
+        envModel: "",
+        free: "",
+      };
+    })
+    .filter((provider): provider is Provider => Boolean(provider));
+}
+
 /** A provider is usable if the server has a key for it, or the student does. */
 export const keyFor = (provider: Provider, userKeys?: UserKeys): string | undefined =>
-  userKeys?.[provider.id]?.trim() || process.env[provider.envKey]?.trim();
+  userKeys?.[provider.id]?.trim() ||
+  (provider.envKey ? process.env[provider.envKey]?.trim() : undefined);
 
 export const configuredProviders = (userKeys?: UserKeys): Provider[] =>
   PROVIDERS.filter((provider) => Boolean(keyFor(provider, userKeys)));
 
 /** Order to try fallbacks in; FALLBACK_ORDER overrides it. */
-export function fallbackChain(userKeys?: UserKeys): Provider[] {
+export function fallbackChain(
+  userKeys?: UserKeys,
+  custom?: CustomProvider[],
+): Provider[] {
   const order = process.env.FALLBACK_ORDER?.split(",").map((id) => id.trim());
-  const available = configuredProviders(userKeys);
+  const built = configuredProviders(userKeys);
+  // The student's own entries go last: the built-in list is known to work.
+  const available = [...built, ...customProviders(custom)];
   if (!order?.length) return available;
-  return order
+  const ranked = order
     .map((id) => available.find((provider) => provider.id === id))
     .filter((provider): provider is Provider => Boolean(provider));
+  // FALLBACK_ORDER names preferences, not the whole world; keep the rest.
+  return [...ranked, ...available.filter((p) => !ranked.includes(p))];
 }
 
 /** Flattens our message shape into plain text, which is all these accept. */
@@ -123,7 +194,9 @@ function toChatMessages(system: string, messages: AiMessage[]) {
 }
 
 const baseUrlFor = (provider: Provider) =>
-  process.env[`${provider.id.toUpperCase()}_BASE_URL`]?.trim() || provider.baseUrl;
+  (provider.id.includes(":")
+    ? undefined
+    : process.env[`${provider.id.toUpperCase()}_BASE_URL`]?.trim()) || provider.baseUrl;
 
 /** Models that exist but cannot answer a chat turn. */
 const NOT_CHAT = /whisper|tts|embed|guard|moderation|rerank|ocr|image|vision-only|sora|dall/i;
@@ -258,9 +331,12 @@ async function callProvider(
 
   if (!response.ok || !response.body) {
     const detail = await response.text().catch(() => "");
-    throw Object.assign(new Error(`${provider.id} HTTP ${response.status}`), {
+    const retryAfter = Number(response.headers.get("retry-after"));
+    throw Object.assign(new Error(`${provider.id} HTTP ${response.status}: ${detail.slice(0, 160)}`), {
       status: response.status,
       detail: detail.slice(0, 300),
+      // The provider's own answer to "when should I come back".
+      retryAfter: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
       model,
     });
   }
@@ -326,8 +402,16 @@ export async function streamFromProvider(
   } = {},
 ): Promise<string> {
   const key = keyFor(provider, options.userKeys)!;
-  const configured = process.env[provider.envModel]?.trim() || provider.defaultModel;
+  const configured =
+    (provider.envModel ? process.env[provider.envModel]?.trim() : "") || provider.defaultModel;
   const first = discovered.get(provider.id) ?? configured;
+  // No model to start from: ask before calling rather than send an empty one.
+  if (!first) {
+    const found = await discoverModel(provider, key, [], options.signal);
+    if (!found) throw Object.assign(new Error(`${provider.id}: no usable model`), { status: 404 });
+    discovered.set(provider.id, found);
+    return callProvider(provider, found, key, system, messages, onText, options);
+  }
 
   // Text goes to the caller as it arrives, so the answer still streams. The
   // flag is what makes a retry safe: every failure worth retrying — a
@@ -363,5 +447,5 @@ export async function streamFromProvider(
 /** The model this provider will be asked for next, for diagnostics. */
 export const currentModel = (provider: Provider): string =>
   discovered.get(provider.id) ??
-  process.env[provider.envModel]?.trim() ??
+  (provider.envModel ? process.env[provider.envModel]?.trim() : undefined) ??
   provider.defaultModel;

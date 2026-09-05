@@ -2,6 +2,8 @@ import { attachmentParts, ndjsonStream, streamTurn } from "@/lib/ai";
 import { ROLE, researchDepthPrompt, systemPrompt } from "@/lib/prompts";
 import { type ExpertId, withExpert } from "@/lib/experts";
 import type { Lang } from "@/lib/i18n";
+import type { Cooldowns } from "@/lib/cooldown";
+import type { CustomProvider } from "@/lib/providers";
 import type { Attachment } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -16,6 +18,8 @@ interface Body {
   expert?: ExpertId;
   attachments?: Attachment[];
   keys?: Record<string, string>;
+  cooldowns?: Cooldowns;
+  custom?: CustomProvider[];
 }
 
 export async function POST(request: Request) {
@@ -68,6 +72,8 @@ export async function POST(request: Request) {
       statusLabels: { thinking: "out.thinking", searching: "research.searching" },
       signal: request.signal,
       keys: body.keys,
+      cooldowns: body.cooldowns,
+      custom: body.custom,
     });
     if (sources.length) emit({ type: "sources", sources });
   });

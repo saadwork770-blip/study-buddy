@@ -4,6 +4,8 @@ import { type ExpertId, withExpert } from "@/lib/experts";
 import { ROLE, systemPrompt } from "@/lib/prompts";
 import type { AiPart, Attachment } from "@/lib/types";
 import type { Lang } from "@/lib/i18n";
+import type { Cooldowns } from "@/lib/cooldown";
+import type { CustomProvider } from "@/lib/providers";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -16,6 +18,8 @@ interface Body {
   expert?: ExpertId;
   attachments?: Attachment[];
   keys?: Record<string, string>;
+  cooldowns?: Cooldowns;
+  custom?: CustomProvider[];
 }
 
 /**
@@ -49,7 +53,7 @@ export async function POST(request: Request) {
     .join("\n\n");
 
   try {
-    const deck = await generateJson<Deck>(system, prompt, DECK_SCHEMA, parts, body.keys);
+    const deck = await generateJson<Deck>(system, prompt, DECK_SCHEMA, parts, body.keys, { cooldowns: body.cooldowns, custom: body.custom });
     const clean = normalizeDeck(deck, brief.slice(0, 80) || "Presentation");
     if (!clean) return Response.json({ error: "error.busy" }, { status: 502 });
     return Response.json({ deck: clean });

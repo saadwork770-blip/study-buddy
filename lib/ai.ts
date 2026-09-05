@@ -1,7 +1,16 @@
 import "server-only";
 import { GoogleGenAI } from "@google/genai";
 import type { AiMessage, AiPart, Attachment, Source, StreamEvent } from "./types";
-import { type UserKeys, fallbackChain, isTextOnly, streamFromProvider } from "./providers";
+import {
+  type CustomProvider,
+  type UserKeys,
+  currentModel,
+  fallbackChain,
+  isTextOnly,
+  keyFor,
+  streamFromProvider,
+} from "./providers";
+import { type Cooldowns, cooldownFor, order, prune } from "./cooldown";
 
 export const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
@@ -178,6 +187,14 @@ export function attachmentParts(attachments: Attachment[] | undefined): AiPart[]
 
 type Emit = (event: StreamEvent) => void;
 
+const isCoolingId = (cooldowns: Cooldowns, id: string, now: number) =>
+  (cooldowns?.[id]?.until ?? 0) > now;
+
+/** Tells the browser what to skip next time; it is the only thing that remembers. */
+function emitCooldowns(emit: Emit, learned: Cooldowns) {
+  if (Object.keys(learned).length) emit({ type: "cooldowns", cooldowns: learned });
+}
+
 // 429 is deliberately absent: a spent daily quota does not refill in the two
 // seconds a backoff would wait, so retrying it just makes the student watch a
 // spinner before the fallback they were always going to get. The model walk
@@ -352,6 +369,10 @@ export interface StreamOptions {
   signal?: AbortSignal;
   /** Keys the student entered in the site's settings page. */
   keys?: UserKeys;
+  /** Which providers are known to be spent, and until when. */
+  cooldowns?: Cooldowns;
+  /** Providers the student added themselves. */
+  custom?: CustomProvider[];
 }
 
 /**
@@ -389,25 +410,51 @@ export async function streamTurn(
       opts.signal,
     );
 
+  const now = Date.now();
+  const cooldowns = prune(opts.cooldowns ?? {}, now);
+  /** What this turn learned about availability, sent back to the browser. */
+  const learned: Cooldowns = {};
+
+  const note = (id: string, err: unknown) => {
+    const entry = cooldownFor(
+      {
+        status: (err as { status?: number })?.status,
+        message: String((err as { message?: string })?.message ?? ""),
+        retryAfter: (err as { retryAfter?: number })?.retryAfter,
+      },
+      Date.now(),
+    );
+    if (entry) learned[id] = entry;
+  };
+
   let stream: Awaited<ReturnType<typeof openStream>> | null = null;
   let lastError: unknown = keyError;
 
-  if (ai) {
+  // Gemini leads when it can: it is the only one with Search grounding and
+  // the only one that can read an uploaded file. When it is spent, the whole
+  // point of the rotation is not to spend a request finding that out again.
+  const geminiReady = ai && !isCoolingId(cooldowns, "gemini", now);
+  if (ai && !geminiReady) {
+    lastError = Object.assign(new Error("gemini cooling"), { status: 429 });
+  }
+
+  if (geminiReady) {
     try {
       stream = (await withGeminiModel(opts.keys, openStream, opts.signal)).value;
     } catch (err) {
       lastError = err;
+      note("gemini", err);
     }
   }
 
   if (!stream) {
     const err = lastError;
-    // Gemini cannot serve this turn — hand it to a backup provider. Only an
-    // uploaded file genuinely cannot go: no backup can read a file held by
-    // Google. A web search can: losing the grounding is a smaller loss than
-    // losing the answer, so the turn goes ahead and says search was dropped.
-    const chain = fallbackChain(opts.keys);
-    if (!canFallOver(err) || !chain.length || !isTextOnly(opts.messages)) {
+    // Only an uploaded file genuinely cannot go: no backup can read a file
+    // held by Google. A web search can — losing the grounding is a smaller
+    // loss than losing the answer, so the turn goes ahead and says so.
+    const chain = order(fallbackChain(opts.keys, opts.custom), cooldowns, now);
+    if ((geminiReady && !canFallOver(err)) || !chain.length || !isTextOnly(opts.messages)) {
+      emitCooldowns(emit, learned);
       throw err;
     }
     for (const provider of chain) {
@@ -429,13 +476,21 @@ export async function streamTurn(
             userKeys: opts.keys,
           },
         );
-        if (answer.trim()) return { text: answer, sources: [] };
+        if (answer.trim()) {
+          emit({ type: "served", provider: provider.label, model: currentModel(provider) });
+          emitCooldowns(emit, learned);
+          return { text: answer, sources: [] };
+        }
       } catch (fallbackError) {
         console.warn(`[study-buddy] fallback ${provider.id} failed:`, fallbackError);
+        note(provider.id, fallbackError);
       }
     }
+    emitCooldowns(emit, learned);
     throw err;
   }
+
+  emitCooldowns(emit, learned);
 
   const sources = new Map<string, Source>();
   let text = "";
@@ -501,6 +556,7 @@ export async function generateJson<T>(
   schema: Record<string, unknown>,
   extraParts: AiPart[] = [],
   keys?: UserKeys,
+  routing: { cooldowns?: Cooldowns; custom?: CustomProvider[] } = {},
 ): Promise<T | null> {
   let ai: GoogleGenAI | null = null;
   let keyError: unknown;
@@ -528,20 +584,29 @@ export async function generateJson<T>(
   // Same per-model quota walk as the streaming path.
   let response: Awaited<ReturnType<typeof attempt>> | null = null;
   let lastError: unknown = keyError;
-  if (ai) {
+  const cooling = isCoolingId(prune(routing.cooldowns ?? {}), "gemini", Date.now());
+  if (ai && !cooling) {
     try {
       response = (await withGeminiModel(keys, attempt)).value;
     } catch (err) {
       lastError = err;
       if (!canFallOver(err)) throw err;
     }
+  } else if (cooling) {
+    lastError = Object.assign(new Error("gemini cooling"), { status: 429 });
   }
 
   if (!response) {
     // Plan and task-card generation would otherwise die with Gemini, even
     // with working backups. They cannot take a Gemini-side response schema,
     // so the shape is asked for in the prompt and validated by the parse.
-    const chain = extraParts.length ? [] : fallbackChain(keys);
+    // Same rotation as the streaming path: skip what is known to be spent.
+    const chain = extraParts.length
+      ? []
+      : order(
+          fallbackChain(keys, routing.custom),
+          prune(routing.cooldowns ?? {}),
+        );
     for (const provider of chain) {
       try {
         const answer = await streamFromProvider(

@@ -86,6 +86,10 @@ export type StreamEvent =
   | { type: "status"; label: string }
   | { type: "text"; text: string }
   | { type: "sources"; sources: Source[] }
+  /** Which provider and model actually answered, when it was not the primary. */
+  | { type: "served"; provider: string; model?: string }
+  /** What this turn learned about who is out of allowance, for the browser to remember. */
+  | { type: "cooldowns"; cooldowns: Record<string, { until: number; reason: string }> }
   | { type: "error"; message: string }
   | { type: "done" };
 

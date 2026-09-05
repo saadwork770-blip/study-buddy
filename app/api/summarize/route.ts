@@ -3,6 +3,8 @@ import { ROLE, summaryStylePrompt, systemPrompt } from "@/lib/prompts";
 import { type ExpertId, withExpert } from "@/lib/experts";
 import type { AiPart, Attachment } from "@/lib/types";
 import type { Lang } from "@/lib/i18n";
+import type { Cooldowns } from "@/lib/cooldown";
+import type { CustomProvider } from "@/lib/providers";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -14,6 +16,8 @@ interface Body {
   expert?: ExpertId;
   attachments?: Attachment[];
   keys?: Record<string, string>;
+  cooldowns?: Cooldowns;
+  custom?: CustomProvider[];
 }
 
 export async function POST(request: Request) {
@@ -47,6 +51,8 @@ export async function POST(request: Request) {
       statusLabels: { thinking: "out.thinking" },
       signal: request.signal,
       keys: body.keys,
+      cooldowns: body.cooldowns,
+      custom: body.custom,
     });
   });
 }

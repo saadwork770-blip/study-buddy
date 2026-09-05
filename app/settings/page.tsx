@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLang } from "@/components/lang-provider";
 import type { TKey } from "@/lib/i18n";
+import { ProviderStatus } from "@/components/provider-status";
 import { KEY_FIELDS, type UserKeys, keysForRequest, readKeys, writeKeys } from "@/lib/user-keys";
 
 interface Probe {
@@ -203,6 +204,8 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+
+      <ProviderStatus />
 
       <div className="alert alert-info" style={{ marginTop: 16 }}>
         {t("settings.privacy")}

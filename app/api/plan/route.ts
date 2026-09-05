@@ -1,6 +1,8 @@
 import { attachmentParts, errorKey, generateJson } from "@/lib/ai";
 import { ROLE, systemPrompt } from "@/lib/prompts";
 import type { Lang } from "@/lib/i18n";
+import type { Cooldowns } from "@/lib/cooldown";
+import type { CustomProvider } from "@/lib/providers";
 import type { Attachment, Task, TaskPlan } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -42,6 +44,8 @@ export async function POST(request: Request) {
     lang: Lang;
     attachments?: Attachment[];
     keys?: Record<string, string>;
+  cooldowns?: Cooldowns;
+  custom?: CustomProvider[];
   };
   const lang: Lang = body.lang === "en" ? "en" : "ar";
   const task = body.task;
@@ -74,6 +78,7 @@ export async function POST(request: Request) {
       PLAN_SCHEMA,
       attachmentParts(body.attachments),
       body.keys,
+      { cooldowns: body.cooldowns, custom: body.custom },
     );
     if (!plan) return Response.json({ error: "error.generic" }, { status: 502 });
     return Response.json(plan);
