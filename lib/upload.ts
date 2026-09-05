@@ -189,12 +189,37 @@ async function pdfText(file: File): Promise<string> {
       console.warn("[study-buddy] pdf text is visual-order glyphs; not portable");
       return "";
     }
-    return text;
+    return lamAlefLost(text) ? LIGATURE_NOTE + text : text;
   } catch (err) {
     console.warn("[study-buddy] pdf text extraction failed:", err);
     return "";
   }
 }
+
+/**
+ * Word writes the lam-alef ligature (لا) as one glyph, and its PDF maps that
+ * glyph to a single character — so the alef is simply gone from the extracted
+ * text: خلال becomes خلل, الغلاف becomes الغلف.
+ *
+ * "لا" is among the most common sequences in Arabic, so not seeing it once in
+ * a page of Arabic means every one of them was lost. The alef cannot be put
+ * back without a dictionary, and guessing would corrupt real words — but a
+ * reader recovers these from context effortlessly, and so does a model that
+ * has been told to expect it. Losing the alef is a long way from the reversed
+ * text that gets discarded above; the document is still perfectly usable.
+ */
+function lamAlefLost(text: string): boolean {
+  const letters = (text.match(/[\u0621-\u064A]/g) ?? []).length;
+  if (letters < 200) return false;
+  const lam = (text.match(/\u0644/g) ?? []).length;
+  const lamAlef = (text.match(/\u0644[\u0622\u0623\u0625\u0627]/g) ?? []).length;
+  return lam >= 20 && lamAlef === 0;
+}
+
+const LIGATURE_NOTE =
+  "[ملاحظة عن هذا النص: استُخرج من PDF فقد فيه حرف الألف بعد اللام في تركيب «لا». " +
+  "أي كلمة تبدو ناقصة ألفاً بعد لام فاقرأها بالألف: «خلل» = «خلال»، «الغلف» = «الغلاف»، " +
+  "«للطلب» = «للطلاب». صحّح ذلك ذهنياً ولا تنقل الكلمات الناقصة كما هي.]\n\n";
 
 /** Office XML files are zips; pull the readable text straight out of them. */
 async function officeXmlText(file: File, kind: "pptx" | "xlsx"): Promise<string> {
