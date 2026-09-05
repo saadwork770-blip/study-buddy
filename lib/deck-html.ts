@@ -89,6 +89,30 @@ export function deckToHtml(deck: Deck, rtl: boolean, docTheme?: DocTheme): strin
           )
           .join("")}</ol></section>`;
 
+      case "chart": {
+        const points = (s.items ?? []).filter((i) => Number.isFinite(i.value));
+        const max = Math.max(...points.map((i) => Number(i.value)), 1);
+        return `<section class="slide">${head2}<div class="chart">${points
+          .map(
+            (i) =>
+              `<div class="bar"><span class="v">${esc(String(i.value))}${
+                s.unit ? `<i>${esc(s.unit)}</i>` : ""
+              }</span><div class="fill" style="height:${(Number(i.value) / max) * 100}%"></div>` +
+              `<span class="cat">${esc(i.label)}</span></div>`,
+          )
+          .join("")}</div></section>`;
+      }
+
+      case "timeline":
+        return `<section class="slide">${head2}<div class="timeline">${(s.items ?? [])
+          .slice(0, 5)
+          .map(
+            (i) =>
+              `<div class="ev"><strong>${esc(i.label)}</strong><span class="dot"></span>` +
+              `<p>${esc(i.text)}</p></div>`,
+          )
+          .join("")}</div></section>`;
+
       case "table": {
         const t = s.table;
         if (!t?.header?.length) return `<section class="slide">${head2}</section>`;
@@ -183,6 +207,23 @@ blockquote{margin:26px 0 0;font-family:${head};font-size:31px;font-style:italic;
   justify-content:center;gap:18px}
 .bullets li{position:relative;padding-inline-start:26px;font-size:20px;color:var(--ink);line-height:1.45}
 .bullets li::before{content:"";position:absolute;inset-inline-start:0;top:.55em;width:10px;height:10px;background:var(--accent)}
+
+.chart{flex:1;display:flex;align-items:flex-end;gap:22px;margin-top:34px;padding-bottom:34px}
+.bar{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;position:relative}
+.bar .fill{width:100%;max-width:110px;background:var(--accent);border-radius:6px 6px 0 0;min-height:6px}
+.bar .v{font-family:${head};font-weight:700;font-size:20px;color:var(--accent);margin-bottom:8px}
+.bar .v i{font-style:normal;font-size:13px;margin-inline-start:2px;opacity:.75}
+.bar .cat{position:absolute;bottom:-30px;font-size:14px;color:var(--muted);text-align:center;line-height:1.25}
+
+/* No flex:1 — the block sits on its own auto margins so it centres in the
+   space under the heading, while every event still starts at the same y so
+   the dots line up on the rail. */
+.timeline{display:flex;gap:14px;margin:auto 0;position:relative}
+.timeline::before{content:"";position:absolute;inset-inline:8%;top:34px;height:3px;background:var(--soft)}
+.ev{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center}
+.ev strong{font-family:${head};font-size:17px;color:var(--accent);margin-bottom:10px}
+.ev .dot{width:15px;height:15px;border-radius:50%;background:var(--accent);position:relative;z-index:1}
+.ev p{margin:14px 4px 0;font-size:14px;color:var(--muted);line-height:1.45}
 
 table{width:100%;border-collapse:collapse;margin-top:26px;font-size:16px}
 th{background:var(--accent);color:#fff;text-align:start;padding:11px 14px}

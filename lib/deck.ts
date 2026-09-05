@@ -18,14 +18,18 @@ export type SlideLayout =
   | "compare"
   | "steps"
   | "quote"
+  | "chart"
+  | "timeline"
   | "table"
   | "close";
 
 export interface DeckItem {
-  /** Heading, number, or side name depending on the layout. */
+  /** Heading, number, side name, or category depending on the layout. */
   label: string;
   /** The supporting line. Empty is fine for a bare list. */
   text?: string;
+  /** The measured quantity, for `chart` only. */
+  value?: number;
 }
 
 export interface DeckSlide {
@@ -40,6 +44,8 @@ export interface DeckSlide {
   table?: { header: string[]; rows: string[][] };
   /** Attribution for `quote`. */
   source?: string;
+  /** What a `chart`'s values are measured in. */
+  unit?: string;
   /** Speaker notes — what to actually say. */
   notes?: string;
 }
@@ -52,7 +58,7 @@ export interface Deck {
 
 export const LAYOUTS: SlideLayout[] = [
   "title", "section", "bullets", "statement", "stats",
-  "columns", "compare", "steps", "quote", "table", "close",
+  "columns", "compare", "steps", "quote", "chart", "timeline", "table", "close",
 ];
 
 /**
@@ -90,15 +96,24 @@ export const DECK_SCHEMA = {
           items: {
             type: "array",
             description:
-              "For 'stats' (label = the number), 'columns', 'compare' (exactly 2) and 'steps'.",
+              "For 'stats' (label = the number), 'columns', 'compare' (exactly 2), 'steps', " +
+              "'timeline' (label = the date or period) and 'chart' (label = the category).",
             items: {
               type: "object",
               properties: {
                 label: { type: "string" },
                 text: { type: "string" },
+                value: {
+                  type: "number",
+                  description: "For 'chart' only: the quantity this category measures.",
+                },
               },
               required: ["label"],
             },
+          },
+          unit: {
+            type: "string",
+            description: "For 'chart': what the values are measured in (%, students, hours).",
           },
           source: { type: "string", description: "Attribution for 'quote'." },
           notes: { type: "string", description: "What the presenter should say." },
@@ -125,6 +140,8 @@ export function deckInstruction(lang: Lang, count: number): string {
     "- compare: exactly 2 items, genuinely opposed — before/after, method A/method B.",
     "- steps: an ordered process, 3-5 items. `label` names the step, `text` describes it.",
     "- quote: a quotation worth showing verbatim. `body` is the quote, `source` the attribution.",
+    "- chart: 3-6 quantities worth comparing visually. Each item needs a numeric `value`; set `unit` to what they measure. Only for figures you were actually given — never invent data to fill a chart.",
+    "- timeline: events or phases in time. `label` is the date or period, `text` what happened.",
     "- table: only for real tabular data.",
     "- close: the last slide — the single thing to remember.",
     "",
@@ -148,13 +165,30 @@ export function normalizeDeck(deck: Deck | null, fallbackTitle: string): Deck | 
     .filter((slide) => slide && typeof slide === "object")
     .map((slide): DeckSlide => {
       const layout = LAYOUTS.includes(slide.layout) ? slide.layout : "bullets";
-      const items = (slide.items ?? []).filter((item) => item?.label?.trim());
+      let items = (slide.items ?? []).filter((item) => item?.label?.trim());
+      if (layout === "chart") {
+        // Models often put the figure in the text instead of `value`.
+        items = items.map((item) => ({
+          ...item,
+          value:
+            typeof item.value === "number" && Number.isFinite(item.value)
+              ? item.value
+              : Number.parseFloat(
+                  (item.text ?? "").replace(/[^\d.-]/g, "") || "",
+                ),
+        }));
+      }
       return {
         ...slide,
         layout,
         // A compare slide with one side is a broken layout, not a design.
         ...(layout === "compare" && items.length !== 2
           ? { layout: items.length ? "columns" : "bullets" }
+          : {}),
+        // Fewer than two real numbers is not a chart; show it as figures.
+        ...(layout === "chart" &&
+        items.filter((item) => Number.isFinite(item.value)).length < 2
+          ? { layout: "stats" as SlideLayout }
           : {}),
         items: items.length ? items : undefined,
         bullets: slide.bullets?.filter((b) => b?.trim()).slice(0, 6),

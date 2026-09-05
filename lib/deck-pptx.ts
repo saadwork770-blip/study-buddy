@@ -265,6 +265,74 @@ export async function deckToPptx(deck: Deck, options: DeckPptxOptions): Promise<
         break;
       }
 
+      // A native PowerPoint chart, not a picture of one, so the student can
+      // edit the numbers in PowerPoint after downloading.
+      case "chart": {
+        const top = header(slide, s);
+        const points = (s.items ?? []).filter((item) => Number.isFinite(item.value));
+        slide.addChart(
+          pptx.ChartType.bar,
+          [
+            {
+              name: s.unit || s.title || "",
+              labels: points.map((item) => item.label),
+              values: points.map((item) => item.value as number),
+            },
+          ],
+          {
+            x: M, y: top, w: W - M * 2, h: H - top - 0.5,
+            barDir: "col",
+            chartColors: [ACCENT],
+            showValue: true,
+            dataLabelColor: INK,
+            dataLabelFontSize: 11,
+            dataLabelFontFace: body,
+            catAxisLabelColor: SOFT,
+            catAxisLabelFontSize: 11,
+            catAxisLabelFontFace: body,
+            valAxisLabelColor: SOFT,
+            valAxisLabelFontSize: 10,
+            valAxisLabelFontFace: body,
+            valGridLine: { style: "dash", color: "E3E8F0" },
+            catGridLine: { style: "none" },
+            showLegend: false,
+            border: { pt: 0, color: "FFFFFF" },
+          },
+        );
+        break;
+      }
+
+      // Time reads along the slide, so the eye follows the sequence.
+      case "timeline": {
+        const top = header(slide, s);
+        const points = (s.items ?? []).slice(0, 5);
+        const n = Math.max(points.length, 1);
+        // Centred in the space under the heading rather than pinned near it.
+        const railY = top + (H - top - 0.5) / 2 - 0.1;
+        const cw = (W - M * 2) / n;
+        slide.addShape(pptx.ShapeType.rect, {
+          x: M + cw / 2, y: railY, w: W - M * 2 - cw, h: 0.03, fill: { color: SOFTFILL },
+        });
+        points.forEach((item, i) => {
+          const cx = mx(M + i * cw, cw);
+          slide.addShape(pptx.ShapeType.ellipse, {
+            x: cx + cw / 2 - 0.11, y: railY - 0.08, w: 0.22, h: 0.22,
+            fill: { color: ACCENT },
+          });
+          text(slide, item.label, {
+            x: cx, y: railY - 0.62, w: cw, h: 0.45,
+            fontSize: 13, bold: true, color: ACCENT, fontFace: head,
+            align: "center", valign: "bottom",
+          });
+          text(slide, item.text ?? "", {
+            x: cx + 0.08, y: railY + 0.28, w: cw - 0.16, h: 1.5,
+            fontSize: 11, color: SOFT, align: "center", valign: "top",
+            lineSpacingMultiple: 1.25,
+          });
+        });
+        break;
+      }
+
       case "table": {
         const top = header(slide, s);
         const t = s.table;

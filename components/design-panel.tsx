@@ -92,7 +92,9 @@ export function DesignPanel({ theme, onChange }: Props) {
             value={theme.bodyFont}
             onChange={(event) => set({ bodyFont: event.target.value, preset: "custom" })}
           >
-            {FONTS.map((font) => (
+            {/* Display faces are left out: they are built for a heading at
+                30pt and are punishing to read in a paragraph. */}
+            {FONTS.filter((font) => font.role !== "heading").map((font) => (
               <option key={font.id} value={font.id}>
                 {ar ? font.ar : font.en}
               </option>

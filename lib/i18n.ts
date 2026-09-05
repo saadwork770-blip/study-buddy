@@ -215,6 +215,8 @@ const dict = {
     "deck.layout.compare": "مقارنة",
     "deck.layout.steps": "خطوات",
     "deck.layout.quote": "اقتباس",
+    "deck.layout.chart": "رسم بياني",
+    "deck.layout.timeline": "خط زمني",
     "deck.layout.table": "جدول",
     "deck.layout.close": "خاتمة",
 
@@ -578,6 +580,8 @@ const dict = {
     "deck.layout.compare": "Comparison",
     "deck.layout.steps": "Steps",
     "deck.layout.quote": "Quote",
+    "deck.layout.chart": "Chart",
+    "deck.layout.timeline": "Timeline",
     "deck.layout.table": "Table",
     "deck.layout.close": "Closing",
 
