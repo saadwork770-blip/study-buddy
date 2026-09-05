@@ -174,6 +174,7 @@ const dict = {
     "out.result": "النتيجة",
     "out.thinking": "يفكّر…",
     "out.fallback": "حصّة Gemini انتهت — أُكمل عبر مزوّد بديل…",
+    "out.fallbackNoSearch": "حصّة Gemini انتهت — أُكمل عبر مزوّد بديل بلا بحث في الويب، فتحقّق من المراجع بنفسك.",
 
     "common.cancel": "إلغاء",
     "common.save": "حفظ",
@@ -540,6 +541,7 @@ const dict = {
     "out.result": "Result",
     "out.thinking": "Thinking…",
     "out.fallback": "Gemini quota is spent — continuing on a backup provider…",
+    "out.fallbackNoSearch": "Gemini quota is spent — continuing on a backup provider without web search, so verify any sources yourself.",
 
     "common.cancel": "Cancel",
     "common.save": "Save",

@@ -402,18 +402,25 @@ export async function streamTurn(
 
   if (!stream) {
     const err = lastError;
-    // Gemini cannot serve this turn — hand it to a backup provider, but only
-    // when nothing about the request depends on Gemini specifically.
+    // Gemini cannot serve this turn — hand it to a backup provider. Only an
+    // uploaded file genuinely cannot go: no backup can read a file held by
+    // Google. A web search can: losing the grounding is a smaller loss than
+    // losing the answer, so the turn goes ahead and says search was dropped.
     const chain = fallbackChain(opts.keys);
-    if (!canFallOver(err) || !chain.length || opts.search || !isTextOnly(opts.messages)) {
+    if (!canFallOver(err) || !chain.length || !isTextOnly(opts.messages)) {
       throw err;
     }
     for (const provider of chain) {
       try {
-        emit({ type: "status", label: "out.fallback" });
+        emit({
+          type: "status",
+          label: opts.search ? "out.fallbackNoSearch" : "out.fallback",
+        });
         const answer = await streamFromProvider(
           provider,
-          opts.system,
+          opts.search
+            ? `${opts.system}\n\nIMPORTANT: the web search tool is NOT available for this answer. Do not claim to have searched, and do not invent citations or URLs. Where a claim needs a source you were not given, write [مرجع مطلوب] / [citation needed].`
+            : opts.system,
           opts.messages,
           (delta) => emit({ type: "text", text: delta }),
           {

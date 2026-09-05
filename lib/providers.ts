@@ -128,22 +128,33 @@ const baseUrlFor = (provider: Provider) =>
 /** Models that exist but cannot answer a chat turn. */
 const NOT_CHAT = /whisper|tts|embed|guard|moderation|rerank|ocr|image|vision-only|sora|dall/i;
 
-/** Preferred shapes, best first — a big instruct model beats a tiny one. */
-const RANK = [
-  /llama[-.]?3\.3.*70b/i,
-  /llama[-.]?4/i,
-  /qwen.*(72b|32b)/i,
-  /deepseek/i,
-  /mistral|mixtral/i,
-  /llama[-.]?3\.1.*70b/i,
-  /gemma/i,
-  /llama/i,
-];
+/**
+ * Parameter count in billions, read off the model id.
+ *
+ * This is the one signal every provider encodes the same way, and it is what
+ * separates a model that can write a literature review from one that cannot.
+ * An id with no size is assumed mid-sized rather than sorted last, since the
+ * strong hosted models increasingly do not put a size in the name.
+ */
+function sizeOf(id: string): number {
+  const moe = /(\d+)\s*x\s*(\d+(?:\.\d+)?)\s*b(?![a-z\d])/i.exec(id);
+  if (moe) return Number(moe[1]) * Number(moe[2]);
+  const sizes = [...id.matchAll(/(\d+(?:\.\d+)?)\s*b(?![a-z\d])/gi)];
+  const last = sizes[sizes.length - 1];
+  return last ? Number(last[1]) : 40;
+}
 
-const rankOf = (id: string) => {
-  const index = RANK.findIndex((pattern) => pattern.test(id));
-  return index === -1 ? RANK.length : index;
+/** Families known to follow instructions well, as a tie-break only. */
+const FAMILY = [/llama/i, /qwen/i, /deepseek/i, /mistral|mixtral/i, /gemma/i, /gpt-oss/i];
+
+const familyOf = (id: string) => {
+  const index = FAMILY.findIndex((pattern) => pattern.test(id));
+  return index === -1 ? FAMILY.length : index;
 };
+
+/** Bigger first, then a known family, then stable ordering by name. */
+const betterModel = (a: string, b: string) =>
+  sizeOf(b) - sizeOf(a) || familyOf(a) - familyOf(b) || a.localeCompare(b);
 
 /**
  * A model id that worked, remembered per provider. Providers rename and
@@ -183,7 +194,7 @@ export async function discoverModel(
     .filter((model) => model.id && !NOT_CHAT.test(model.id))
     .filter((model) => !rejected.includes(model.id))
     .filter((model) => (provider.usable ? provider.usable(model) : true))
-    .sort((a, b) => rankOf(a.id) - rankOf(b.id) || a.id.localeCompare(b.id));
+    .sort((a, b) => betterModel(a.id, b.id));
   return usable[0]?.id;
 }
 
