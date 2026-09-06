@@ -26,7 +26,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Capacitor 8's CLI refuses to run below 22, and pdfjs-dist wants
+          # 22.13+. Node 20 fails this build before it reaches Gradle.
+          node-version: 22
           cache: npm
 
       - uses: actions/setup-java@v4
