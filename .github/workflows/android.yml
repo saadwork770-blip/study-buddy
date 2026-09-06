@@ -21,6 +21,8 @@ on:
 jobs:
   apk:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -62,3 +64,39 @@ jobs:
           name: study-buddy-apk
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      - name: Publish the APK to the apk-build branch
+        # An Actions artifact can only be fetched by someone signed in to
+        # GitHub, from a storage host that is not reachable everywhere. A
+        # branch is plain HTTPS, so the APK can be downloaded directly:
+        #   raw.githubusercontent.com/<owner>/<repo>/apk-build/study-buddy.apk
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          apk=$(find android/app/build/outputs/apk/debug -name '*.apk' | head -1)
+          test -n "$apk"
+          work=$(mktemp -d)
+          cp "$apk" "$work/study-buddy.apk"
+          cd "$work"
+          {
+            echo "# رفيق الدراسة — APK"
+            echo
+            echo "Built by GitHub Actions. This branch holds only the built app."
+            echo
+            echo "- commit: $GITHUB_SHA"
+            echo "- run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "- size: $(du -h study-buddy.apk | cut -f1)"
+            echo
+            echo "Download: study-buddy.apk, then open it on the phone."
+          } > README.md
+          git init -q
+          git checkout -q -b apk-build
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "APK built from $GITHUB_SHA"
+          # Force: this branch is a drop box for the latest build, not history.
+          git push -q --force "https://x-access-token:$TOKEN@github.com/$GITHUB_REPOSITORY.git" apk-build
+          echo "published to the apk-build branch"
+
