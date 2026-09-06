@@ -7,7 +7,7 @@ import { Markdown } from "@/components/markdown";
 import { ExpertPicker } from "@/components/expert-picker";
 import { FileAttach } from "@/components/file-attach";
 import { useLibrary } from "@/lib/store";
-import { readNdjson } from "@/lib/stream";
+import { useStream } from "@/lib/use-stream";
 import { exportPayload } from "@/lib/export";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import type { TKey } from "@/lib/i18n";
@@ -24,62 +24,43 @@ const SUGGESTIONS: TKey[] = ["chat.suggest.1", "chat.suggest.2", "chat.suggest.3
 export default function ChatPage() {
   const { t, lang } = useLang();
   const { saveItem } = useLibrary();
+  const stream = useStream();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState("tutor");
   const [subject, setSubject] = useState("");
   const [expert, setExpert] = useState<string | null>(null);
   const [files, setFiles] = useState<Attachment[]>([]);
-  const [running, setRunning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const controller = useRef<AbortController | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, running]);
+  }, [messages, stream.running]);
 
   const send = async (content: string) => {
     const question = content.trim();
-    if (!question || running) return;
+    if (!question || stream.running) return;
 
     const history: ChatMessage[] = [...messages, { role: "user", content: question }];
     setMessages([...history, { role: "assistant", content: "" }]);
     setInput("");
-    setError(null);
     setSaved(false);
-    setRunning(true);
 
-    const abort = new AbortController();
-    controller.current = abort;
-
-    try {
-      const response = await fetch("/api/chat", {
+    // Routes through the shared stream reader so a quota switch is actually
+    // remembered (cooldowns), shown while it happens (status), and explained
+    // if every provider refuses (attempts) — not just the raw text delta.
+    const answer = await stream.run(
+      "/api/chat",
+      {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(withKeys({ messages: history, lang, mode, subject, expert, attachments: files })),
-        signal: abort.signal,
-      });
+      },
+      (full) => setMessages([...history, { role: "assistant", content: full }]),
+    );
 
-      let answer = "";
-      await readNdjson(response, (event) => {
-        if (event.type === "text") {
-          answer += event.text;
-          setMessages([...history, { role: "assistant", content: answer }]);
-        } else if (event.type === "error") {
-          setError(event.message);
-        }
-      });
-
-      if (!answer) setMessages(history);
-    } catch (err) {
-      if ((err as Error)?.name !== "AbortError") setError("error.generic");
-      setMessages(history);
-    } finally {
-      controller.current = null;
-      setRunning(false);
-    }
+    if (!answer) setMessages(history);
   };
 
   const transcript = messages
@@ -114,7 +95,7 @@ export default function ChatPage() {
                 saveItem({ kind: "chat", title, content: transcript, lang });
                 setSaved(true);
               }}
-              disabled={saved || running}
+              disabled={saved || stream.running}
             >
               {saved ? `✓ ${t("out.saved")}` : t("out.save")}
             </button>
@@ -122,7 +103,7 @@ export default function ChatPage() {
               type="button"
               className="button button-ghost button-sm"
               onClick={() => void exportPayload("docx", { title, markdown: transcript, lang })}
-              disabled={running}
+              disabled={stream.running}
             >
               ⤓ Word
             </button>
@@ -130,7 +111,7 @@ export default function ChatPage() {
               type="button"
               className="button button-ghost button-sm"
               onClick={() => exportPayload("pdf", { title, markdown: transcript, lang })}
-              disabled={running}
+              disabled={stream.running}
             >
               🖨 PDF
             </button>
@@ -139,7 +120,6 @@ export default function ChatPage() {
               className="button button-ghost button-sm"
               onClick={() => {
                 setMessages([]);
-                setError(null);
                 setSaved(false);
               }}
             >
@@ -198,7 +178,7 @@ export default function ChatPage() {
               ) : (
                 <span className="status-line">
                   <span className="dot-pulse" />
-                  {t("out.thinking")}
+                  {stream.status ? t(stream.status as TKey) : t("out.thinking")}
                 </span>
               )}
             </div>
@@ -207,7 +187,19 @@ export default function ChatPage() {
         </div>
       )}
 
-      {error && <div className="alert alert-error">{t(error as TKey)}</div>}
+      {stream.error && (
+        <div className="alert alert-error">
+          {t(stream.error as TKey)}
+          {stream.attempts.length > 0 && (
+            <div className="tiny" style={{ marginTop: 8, opacity: 0.9 }}>
+              {t("out.tried")}:{" "}
+              {stream.attempts
+                .map((a) => `${a.provider} (${t(a.reason as TKey)})`)
+                .join(" · ")}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="no-print" style={{ marginBottom: 8 }}>
         <FileAttach value={files} onChange={setFiles} compact />
@@ -231,12 +223,8 @@ export default function ChatPage() {
             }
           }}
         />
-        {running ? (
-          <button
-            type="button"
-            className="button button-ghost"
-            onClick={() => controller.current?.abort()}
-          >
+        {stream.running ? (
+          <button type="button" className="button button-ghost" onClick={stream.stop}>
             {t("chat.stop")}
           </button>
         ) : (
