@@ -1,0 +1,62 @@
+name: Build Android APK
+
+# The APK is built here rather than on a laptop: GitHub's runners already
+# have the Android SDK, so nobody needs to install 1.5 GB of tooling to get
+# an installable file.
+on:
+  workflow_dispatch:
+    inputs:
+      site_url:
+        description: "Site the app should open (leave blank for the default)"
+        required: false
+        default: ""
+  push:
+    branches: [claude/master-study-support-site-8g04ww]
+    paths:
+      - "android/**"
+      - "capacitor.config.ts"
+      - "native/**"
+      - ".github/workflows/android.yml"
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync the shell
+        # Rewrites android/app/src/main/assets/capacitor.config.json from
+        # capacitor.config.ts, so the URL below actually reaches the app.
+        env:
+          STUDY_BUDDY_URL: ${{ github.event.inputs.site_url }}
+        run: npx cap sync android
+
+      - name: Build debug APK
+        run: ./gradlew --no-daemon assembleDebug
+        working-directory: android
+
+      - name: Show what was built
+        run: |
+          find app/build/outputs -name "*.apk" -exec ls -lh {} \;
+        working-directory: android
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: study-buddy-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

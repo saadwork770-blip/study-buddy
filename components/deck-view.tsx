@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLang } from "./lang-provider";
 import type { TKey } from "@/lib/i18n";
 import { deckToHtml } from "@/lib/deck-html";
+import { download } from "@/lib/export";
 import { DEFAULT_THEME, type DocTheme } from "@/lib/doc-theme";
 import type { Deck } from "@/lib/deck";
 import { withKeys } from "@/lib/user-keys";
@@ -50,7 +51,7 @@ export function DeckView({ deck }: { deck: Deck }) {
 
   const html = useMemo(() => deckToHtml(deck, rtl, theme), [deck, rtl, theme]);
 
-  const download = async () => {
+  const save = async () => {
     setBusy(true);
     setFailed(false);
     try {
@@ -60,15 +61,8 @@ export function DeckView({ deck }: { deck: Deck }) {
         body: JSON.stringify(withKeys({ deck, lang, theme })),
       });
       if (!response.ok) throw new Error(String(response.status));
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${deck.title.slice(0, 60) || "deck"}.pptx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      // The shared helper, so this works inside the Android shell too.
+      await download(await response.blob(), `${deck.title.slice(0, 60) || "deck"}.pptx`);
     } catch {
       setFailed(true);
     } finally {
@@ -87,7 +81,7 @@ export function DeckView({ deck }: { deck: Deck }) {
         <strong>{deck.title}</strong>
         <span className="spacer" />
         <span className="hint">{t("deck.count", { n: String(deck.slides.length) })}</span>
-        <button type="button" className="button button-sm" onClick={download} disabled={busy}>
+        <button type="button" className="button button-sm" onClick={save} disabled={busy}>
           {busy ? t("deck.building") : t("deck.download")}
         </button>
       </div>

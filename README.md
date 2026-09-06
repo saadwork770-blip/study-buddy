@@ -261,3 +261,50 @@ Prompts are written to help you understand, plan and revise your own work. The m
 - Gemini via `@google/genai` — streaming, a configurable thinking budget, **Google Search grounding** for real citations on the Research page, and `responseSchema` JSON output for task plans.
 - PDFs and images are sent to Gemini as native `inlineData` parts; `.docx` is converted locally with `mammoth`.
 - Uploads are capped by `NEXT_PUBLIC_MAX_UPLOAD_MB` (4 MB by default, for Vercel's sake).
+
+## Android app (APK)
+
+The app is a native shell around the deployed site. It is not a rewrite and
+not an offline build: every AI feature runs through this project's own
+server routes — they hold the model SDKs, the provider rotation and the
+file relay — so there has to be a server. Loading the live site also means
+the app updates when the site does, with no new APK for a fix.
+
+### Getting an APK
+
+You do not need Android Studio or the SDK. GitHub builds it:
+
+1. Open the repository's **Actions** tab.
+2. Choose **Build Android APK**, then **Run workflow**.
+   Leave the URL blank for the default site, or give another one to wrap a
+   fork or a preview deployment.
+3. When it finishes, download **study-buddy-apk** from the run's artifacts.
+4. Unzip it and open the `.apk` on the phone. Android will ask you to allow
+   installing from this source; that is expected for an app that did not
+   come from Play.
+
+The workflow also runs on any push that touches `android/`,
+`capacitor.config.ts` or `native/`.
+
+### Building it locally instead
+
+Needs JDK 21 and the Android SDK:
+
+```bash
+npm install
+npx cap sync android
+cd android && ./gradlew assembleDebug
+# android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Notes
+
+- **Signing.** The workflow produces a debug-signed APK: installable, and
+  fine for your own phone. Publishing to Play needs a release keystore,
+  which is deliberately not in this repository.
+- **Saving documents.** An Android WebView never hands a `blob:` URL to the
+  download manager, so exports would silently fail. Inside the shell they
+  are written to the device and offered to the share sheet instead — see
+  `download()` in `lib/export.ts`.
+- **API keys** live in the app's own storage, exactly as in the browser, and
+  are entered on the same settings screen.

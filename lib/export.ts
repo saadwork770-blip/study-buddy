@@ -32,7 +32,31 @@ export function safeFilename(title: string): string {
   return cleaned || "study-buddy";
 }
 
-export function download(blob: Blob, filename: string) {
+/** True inside the Android shell, false in any browser. */
+const isNativeShell = () =>
+  typeof window !== "undefined" &&
+  Boolean((window as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
+
+/**
+ * Saves a generated file.
+ *
+ * An Android WebView never hands a `blob:` URL to its download manager, so
+ * the anchor trick that works in every browser silently does nothing inside
+ * the app — and every export this project makes is a blob. In the shell the
+ * bytes are written to the device instead and offered to the share sheet,
+ * which is how a phone expects to receive a file anyway.
+ */
+export async function download(blob: Blob, filename: string): Promise<void> {
+  if (isNativeShell()) {
+    try {
+      await saveNatively(blob, filename);
+      return;
+    } catch (err) {
+      // Fall through to the browser path rather than losing the document.
+      console.warn("[study-buddy] native save failed, falling back:", err);
+    }
+  }
+
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -42,6 +66,31 @@ export function download(blob: Blob, filename: string) {
   anchor.remove();
   // Give the browser a tick to start the download before revoking.
   setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/** Writes to the app's documents directory, then opens the share sheet. */
+async function saveNatively(blob: Blob, filename: string): Promise<void> {
+  const [{ Filesystem, Directory }, { Share }] = await Promise.all([
+    import("@capacitor/filesystem"),
+    import("@capacitor/share"),
+  ]);
+
+  const data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    // Filesystem wants base64 without the data: prefix.
+    reader.onload = () => resolve(String(reader.result).split(",", 2)[1] ?? "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+
+  const written = await Filesystem.writeFile({
+    path: filename,
+    data,
+    directory: Directory.Documents,
+    recursive: true,
+  });
+
+  await Share.share({ title: filename, url: written.uri });
 }
 
 /** The student's own reference list, formatted in their chosen style. */
@@ -264,32 +313,32 @@ function formatWhen(payload: ExportPayload): string {
   );
 }
 
-export function exportMarkdown(payload: ExportPayload) {
+export async function exportMarkdown(payload: ExportPayload) {
   const text = `# ${payload.title}\n\n${withSources(payload)}`;
-  download(
+  await download(
     new Blob([text], { type: "text/markdown;charset=utf-8" }),
     `${safeFilename(payload.title)}.md`,
   );
 }
 
-export function exportText(payload: ExportPayload) {
+export async function exportText(payload: ExportPayload) {
   const text = `${payload.title}\n${"=".repeat(payload.title.length)}\n\n${markdownToText(
     withSources(payload),
   )}\n`;
-  download(
+  await download(
     new Blob([text], { type: "text/plain;charset=utf-8" }),
     `${safeFilename(payload.title)}.txt`,
   );
 }
 
-export function exportHtml(payload: ExportPayload) {
-  download(
+export async function exportHtml(payload: ExportPayload) {
+  await download(
     new Blob([buildHtmlDocument(payload)], { type: "text/html;charset=utf-8" }),
     `${safeFilename(payload.title)}.html`,
   );
 }
 
-export function exportJson(payload: ExportPayload) {
+export async function exportJson(payload: ExportPayload) {
   const data = {
     title: payload.title,
     lang: payload.lang,
@@ -297,7 +346,7 @@ export function exportJson(payload: ExportPayload) {
     sources: payload.sources ?? [],
     content: payload.markdown,
   };
-  download(
+  await download(
     new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
     `${safeFilename(payload.title)}.json`,
   );
@@ -317,7 +366,7 @@ export async function exportPptx(payload: ExportPayload) {
     }),
   });
   if (!response.ok) throw new Error("pptx export failed");
-  download(await response.blob(), `${safeFilename(payload.title)}.pptx`);
+  await download(await response.blob(), `${safeFilename(payload.title)}.pptx`);
 }
 
 export async function exportDocx(payload: ExportPayload) {
@@ -334,7 +383,7 @@ export async function exportDocx(payload: ExportPayload) {
     }),
   });
   if (!response.ok) throw new Error("docx export failed");
-  download(await response.blob(), `${safeFilename(payload.title)}.docx`);
+  await download(await response.blob(), `${safeFilename(payload.title)}.docx`);
 }
 
 /**
@@ -377,7 +426,7 @@ export function exportPayload(format: ExportFormat, payload: ExportPayload) {
 
 const csvCell = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
 
-export function exportTasksCsv(tasks: Task[], lang: Lang) {
+export async function exportTasksCsv(tasks: Task[], lang: Lang) {
   const header =
     lang === "ar"
       ? ["العنوان", "المقرر", "النوع", "الأولوية", "الحالة", "التسليم", "الخطوات المنجزة", "ملاحظات"]
@@ -400,7 +449,7 @@ export function exportTasksCsv(tasks: Task[], lang: Lang) {
 
   // The BOM makes Excel read the file as UTF-8 so Arabic is not mangled.
   const csv = "﻿" + [header.map(csvCell).join(","), ...rows].join("\r\n");
-  download(
+  await download(
     new Blob([csv], { type: "text/csv;charset=utf-8" }),
     `${safeFilename(lang === "ar" ? "المهام" : "tasks")}.csv`,
   );
